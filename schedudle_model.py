@@ -7,7 +7,7 @@ def get_intersection(dict1: dict, dict2: dict) -> set:
         if key in dict2 and dict2[key] == value:
             intersection[key] = value
             #print(f"Общие пары ключ-значение (вложенные циклы): {common_items}")
-            return intersection
+    return intersection
 
 class AgentType(Enum):
     TEACHER =   0,
