@@ -1,25 +1,38 @@
-dict1 = {'a': 1, 'b': [1, 2, 3], 'c': 3}
-dict2 = {'b': [1, 2], 'c': 3, 'd': 6}
+dict1 = [
+    [2, 3, 6, 1],
+    [0, None, None, 1],
+    [0, 3, 4, 1],
+    [0, 1, 3, 1],
+    [5, 4, 2, 1]
+]
+dict2 = [
+    [2, 3, 6, 1],
+    [0, None, None, 1],
+    [0, 3, 4, 1],
+    [0, 1, 3, 1],
+    [5, 4, 2, 1]  
+]
 
-# 1. Пересечение ключей
-#keys_intersection = dict1.keys() & dict2.keys()  # Или set(dict1.keys()).intersection(dict2.keys())
-#print(f"Пересечение ключей: {keys_intersection}")
+def has_intersection_by_id(timeslots1: list, timeslots2: list, class_id) -> bool:
+    for day_i, day in enumerate(timeslots1):
+        for slot_i, slot in enumerate(day):
+            if slot == class_id and timeslots2[day_i][slot_i] == class_id:
+                print(f"Found intersection in [{day_i}][{slot_i}]")
+    return True
 
-# 2. Пересечение значений (требует преобразования в множество)
-#values_intersection = set(dict1.values()).intersection(dict2.values())
-#print(f"Пересечение значений: {values_intersection}")
+has_intersection_by_id(dict1, dict2, None)
+print(len((1, 2,3)))
 
-# 3. Пересечение пар ключ-значение (items())
-#items_intersection = dict1.items() & dict2.items()
-#print(f"Пересечение пар ключ-значение: {items_intersection}")
-
-# 4. Использование генераторов для получения пересечения значений по ключам
-#values_intersection_by_key = {k: dict1[k] for k in dict1.keys() & dict2.keys()}
-#print(f"Пересечение значений по ключам: {values_intersection_by_key}")
-
-# 5. Вложенные циклы (менее эффективный, но гибкий)
-common_items = {}
-for key, value in dict1.items():
-    if key in dict2 and dict2[key] == value:
-        common_items[key] = value
-print(f"Общие пары ключ-значение (вложенные циклы): {common_items}")
+#            for subjpref in self.groups_subjprefs:
+#               subjpref[0] - group_id
+#               subjpref[1] - day_id
+#               subjpref[2] - time number
+#
+#                timeproposal = (
+#                    self.owned_classes[self.viewing_class]["id"],
+#                    subjpref[1], subjpref[2]
+#                )
+#                request = Message(MessageType.TIMEPROPOSAL, timeproposal)
+#                request.set_receiver(subjpref[0])
+#                request.set_sender(self.get_id())
+#                self.send_message(request, subjpref[0])
