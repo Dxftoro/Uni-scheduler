@@ -48,6 +48,12 @@ class TeacherState(Enum):
     FIX_MEETING = 6,
 
     WAIT_FOR_AVAIL = 7
+    WORK_ENDED = 8
+
+class SolutionType(Enum):
+    SOLUTION_NOT_FOUND = 0,
+    UNDEFINED = 1,
+    SOLUTION_FOUND = 2
 
 class Message:
     def __init__(self, type, content, sender_id = None, receiver_id = None):
@@ -88,10 +94,11 @@ class SendingAgent(Agent):
         message.set_receiver(receiver_id)
         
         if id_is_index:
-            self.model.schedule.agents[receiver_id].receive_message(message)
+            self.model.sending_agents[receiver_id].receive_message(message)
         else:
-            for agent in self.model.schedule.agents:
+            for agent in self.model.sending_agents:
                 if agent.get_id() == receiver_id:
+                    print(f"{type(self)} sent to {type(agent)} a message of type {message.get_type()}")
                     agent.receive_message(message)
                     break
     
@@ -109,18 +116,39 @@ class SendingAgent(Agent):
         return self.message_box.pop()
     
 class TeacherAgent(SendingAgent):
+    def _next_class(self, mark_previous_as):
+        self.owned_classes[self.viewing_class]["solution"] = mark_previous_as
+        self.viewing_class += 1
+
+        if self.viewing_class >= len(self.owned_classes):
+            self.state = TeacherState.WORK_ENDED
+            print(f"Teacher {self.get_id()} ended working!")
+        else:
+            self.state = TeacherState.ASK_WHEN_AVAIL
+        
+        self.groups_subjprefs = []
+        self.current_subjpref_index = 0
+
     def __init__(self, model, self_id, timeslots, owned_classes, owned_groups):
+        if not isinstance(owned_classes, list):
+            owned_classes = [owned_classes]
+        if not isinstance(owned_groups, list):
+            owned_groups = [owned_groups]
+
         super().__init__(self_id, model)
 #       Main data
-        self.owned_classes = owned_classes
+        self.owned_classes = []
         self.owned_groups = owned_groups
         self.timeslots = timeslots
 #       Step-dependent data
         self.viewing_class = 0
         self.state = TeacherState.ASK_WHEN_AVAIL
-        self.current_subjpref_index = 0
 #       State-dependent data
         self.groups_subjprefs = []
+        self.current_subjpref_index = 0
+
+        for owned_class in owned_classes:
+            self.owned_classes.append({"id": owned_class, "solution": SolutionType.UNDEFINED})
     
     def on_receive(self):
         message = self.get_last_message()
@@ -148,9 +176,9 @@ class TeacherAgent(SendingAgent):
                 self.state = TeacherState.ASK_SUBJ_PREFS
 
         elif self.state == TeacherState.IMPOSS_MEETING:
-            self.owned_classes[self.viewing_class]["solution"] = 0
-            self.viewing_class += 1
-        
+            print(f"Teacher {self.get_id()} didn't find free timeslot for this class!")
+            self._next_class(SolutionType.SOLUTION_NOT_FOUND)
+
         elif self.state == TeacherState.ASK_SUBJ_PREFS:
             self.groups_subjprefs = []
 
@@ -166,7 +194,7 @@ class TeacherAgent(SendingAgent):
 
                 response = self.pop_last_message()
                 if response.get_type() == MessageType.SUBJPREFS:
-                    self.groups_subjprefs.append(response.get_content())
+                    self.groups_subjprefs += response.get_content()
                 else:
                     raise Exception(f"SUBJPREFS expected. Got {response.get_type()}")
 
@@ -193,6 +221,7 @@ class TeacherAgent(SendingAgent):
 
                 response = self.pop_last_message()
                 if response.get_type() == MessageType.ACCEPT:
+                    self.timeslots[subjpref[0]][subjpref[1]] = self.owned_classes[self.viewing_class]["id"]
                     self.state = TeacherState.FIX_MEETING
                     break
                 elif response.get_type() == MessageType.REJECT:
@@ -201,10 +230,15 @@ class TeacherAgent(SendingAgent):
                 else:
                     raise Exception(f"ACCEPT or REJECT expected. Got {response.get_type()}")
         
+        elif self.state == TeacherState.SOLNOT_FOUND:
+            print(f"Teacher {self.get_id()} didn't find solution for this class!")
+            self._next_class(SolutionType.SOLUTION_NOT_FOUND)
+
         elif self.state == TeacherState.FIX_MEETING:
             for group_id in self.owned_groups:
                 request = Message(MessageType.FIXMEETING, None, self.get_id(), group_id)
                 self.send_message(request, group_id)
+            self._next_class(SolutionType.SOLUTION_FOUND)
 
 class GroupAgent(SendingAgent):
     def __init__(self, model, self_id, timeslots):
@@ -219,15 +253,15 @@ class GroupAgent(SendingAgent):
             response = Message(MessageType.USERAVAIL, self.timeslots)
             response.set_sender(self.get_id())
             response.set_receiver(message.get_sender())
-            self.send_message(message, message.get_sender())
+            self.send_message(response, message.get_sender())
 
         elif message.get_type() == MessageType.EVALUATE:
-            subjpref = ()
+            subjpref = []
             for day_i in range(len(self.timeslots)):
                 for slot_i in range(len(self.timeslots[day_i])):
                     if self.timeslots[day_i][slot_i] is None:
-                        subjpref = (day_i, slot_i)
-                        break
+                        subjpref.append((day_i, slot_i))
+                        #print(f"Found a free time on [{day_i}][{slot_i}]")
             
             if len(subjpref):
                 response = Message(MessageType.SUBJPREFS, subjpref)
@@ -250,13 +284,18 @@ class GroupAgent(SendingAgent):
                 response.set_receiver(message.get_sender())
                 self.send_message(response, message.get_sender())
             else:
+                print(f"Timeslot [{day_i}][{slot_i}] is {self.timeslots[day_i][slot_i]}")
                 response = Message(MessageType.REJECT, None, self.get_id(), message.get_sender())
+                self.send_message(response, message.get_sender())
         
         elif message.get_type() == MessageType.FIXMEETING:
             print("Meeting fixed")
     
     def step(self):
         print(f"Group {self.get_id()} stepped!")
+    
+    def get_timeslots(self):
+        return self.timeslots
 
 class ScheduleModel(Model):
     def _make_ids(self, group_config: dict, global_space: Space):
@@ -275,12 +314,12 @@ class ScheduleModel(Model):
                 if "owned_classes" in self.teacher_ids[teacher_id]:
                     self.teacher_ids[teacher_id]["owned_classes"].add(class_id)
                 else:
-                    self.teacher_ids[teacher_id]["owned_classes"] = set()
+                    self.teacher_ids[teacher_id]["owned_classes"] = {class_id}
 
                 if "owned_groups" in self.teacher_ids[teacher_id]:
                     self.teacher_ids[teacher_id]["owned_groups"].add(group_id)
                 else:
-                    self.teacher_ids[teacher_id]["owned_groups"] = set()
+                    self.teacher_ids[teacher_id]["owned_groups"] = {group_id}
         
         print("Group ids: ", self.group_ids)
         print("Class ids: ", self.class_ids)
@@ -288,27 +327,52 @@ class ScheduleModel(Model):
 
     def _make_agents(self, default_timeslots: list):
         for group_id in self.group_ids:
-            GroupAgent.create_agents(self, 1, group_id, copy.deepcopy(default_timeslots))
+            group_agent_set = GroupAgent.create_agents(self, 1, group_id, copy.deepcopy(default_timeslots))
+            self.sending_agents.append(next(iter(group_agent_set)))
+
         for teacher_id, teacher_property in self.teacher_ids.items():
-            TeacherAgent.create_agents(self, 1,
+            print("Тип teacher_property:", type(teacher_property))  # Должен быть dict
+            print("Тип owned_classes:", type(teacher_property["owned_classes"]))  # Должен быть set
+            print("Значение owned_classes:", teacher_property["owned_classes"])  # Должно быть {18}, а не 18
+
+            if not len(teacher_property["owned_classes"]) or not len(teacher_property["owned_groups"]):
+                raise Exception("Teacher property can't be empty!")
+
+            teacher_agent_set = TeacherAgent.create_agents(self, 1,
                 teacher_id,
                 copy.deepcopy(default_timeslots),
                 list(teacher_property["owned_classes"]),
                 list(teacher_property["owned_groups"])
             )
+            self.sending_agents.append(next(iter(teacher_agent_set)))
 
     def __init__(self, default_timeslots: list, group_config: dict, global_space: Space):
         super().__init__(seed=0)
-        self.agents
+        self.agents # !!!
 
         self.default_timeslots = default_timeslots
         self.group_ids = []
         self.class_ids = []
         self.room_ids = []
         self.teacher_ids = {}
+        self.sending_agents = []
 
         self._make_ids(group_config, global_space)
         self._make_agents(default_timeslots)
     
     def step(self):
         self.agents.shuffle_do("step")
+    
+    def get_group_timeslots(self):
+        timeslots = {}
+        for agent in self.sending_agents:
+            if isinstance(agent, GroupAgent):
+                timeslots[agent.get_id()] = agent.get_timeslots()
+        return timeslots
+    
+    def get_teacher_states(self):
+        states = []
+        for agent in self.sending_agents:
+            if isinstance(agent, TeacherAgent):
+                states.append(agent.state)
+        return states

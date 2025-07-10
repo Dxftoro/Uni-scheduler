@@ -23,6 +23,9 @@ def has_intersection_by_id(timeslots1: list, timeslots2: list, class_id) -> bool
 has_intersection_by_id(dict1, dict2, None)
 print(len((1, 2,3)))
 
+aa = {18}
+print(list(aa))
+
 #            for subjpref in self.groups_subjprefs:
 #               subjpref[0] - group_id
 #               subjpref[1] - day_id

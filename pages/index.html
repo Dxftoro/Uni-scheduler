@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Расписание</title>
+
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+
+<body>
+	<div class="container mt-4 text-center" id="table-wrapper">
+        <div class="row">
+            <ul class="list-group text-left">
+            {% for group_id, slots in timeslots.items() %}
+                <li class="list-group-item py-1"><strong>Группа {{ group_id }}:</strong></li>
+                    {% for row in slots %}
+                        <li class="list-group-item py-0">{{ row }}</li>
+                    {% endfor %}
+            {% endfor %}
+            </ul>
+        </div>
+
+        <div class="row mt-4">
+            <ul class="list-group text-left">
+                <strong>Состояния преподавателей:</strong>
+            {% for state in states %}
+                <li>{{ state.name }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+
+        <form action="" method="post">
+            <div class="form-group">
+                <button type="submit" class="btn btn-light">Следующий шаг</button>
+            </div>
+        </form>
+	</div>
+</body>
+
+</html>

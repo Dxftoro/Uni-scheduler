@@ -1,0 +1,27 @@
+body {
+	background-color: #111111;
+	color: white;
+	font-family: Arial;
+}
+
+#table-main {
+	border: 1px solid white;
+    	border-spacing: 1px 1px;
+}
+
+th {
+	padding: 3px;
+}
+
+td {
+	border: 1px solid white;
+	padding: 6px;
+}
+
+tr {
+	background-color: #1f1f1f;
+}
+
+.list-group-item {
+	background-color: #1f1f1f;
+}
