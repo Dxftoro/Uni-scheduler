@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import random
+import copy
 
 script_dir = os.path.dirname(sys.argv[0])
 config_dir = os.path.join(script_dir, "config")
@@ -17,11 +18,11 @@ def load_config(config_path):
     return input_dict
 
 class Class:
-    def __init__(self, name: str, class_type: str):
+    def __init__(self, name: str, class_type: str, min_class_times: int, max_class_times: int):
         self.name = name
         self.class_type = class_type
         self.times = ()
-        self.__make_times(2)
+        self.__make_times(random.randint(min_class_times, max_class_times))
     
     def __make_times(self, max_times: int):
         first_time = max_times - random.randint(0, max_times)
@@ -38,10 +39,10 @@ class Class:
         return self.times
 
     @staticmethod
-    def make_class_set(name: str, types: list):
+    def make_class_set(name: str, types: list, min_class_times, max_class_times):
         class_set = []
         for type in types:
-            class_set.append(Class(name + ", " + type, type))
+            class_set.append(Class(name + ", " + type, type, min_class_times, max_class_times))
         return class_set
 
 class Teacher:
@@ -75,36 +76,44 @@ class TeacherMaker:
         
         return Teacher(teacher_name, teacher_class_list)
 
-def generate_classes(group_name, class_count, generator_config):
-    class_name_list = generator_config["classes"]
+def generate_classes(group_names, class_count, generator_config):
+    #class_name_list = generator_config["classes"]
     teacher_name_list = generator_config["teachers"]
     class_type_list = generator_config["class_types"]
+    min_class_times = generator_config["min_class_times"]
+    max_class_times = generator_config["max_class_times"]
     
     group_dict = {}
-    for i in range(class_count):
-        choosen_class_index = random.randint(0, len(class_name_list) - 1)
-        choosen_class_name = class_name_list[choosen_class_index]
-        class_name_list.pop(choosen_class_index)
+    for group_name in group_names:
+        class_name_list = copy.deepcopy(generator_config["classes"])
+        for i in range(class_count):
+            print(len(class_name_list) - 1)
+            choosen_class_index = random.randint(0, len(class_name_list) - 1)
+            choosen_class_name = class_name_list[choosen_class_index]
+            class_name_list.pop(choosen_class_index)
 
-        class_set = Class.make_class_set(choosen_class_name, class_type_list)
-        for _class in class_set:
-            if group_name not in group_dict:
-                group_dict[group_name] = {}
-            
-            if _class.get_name() not in group_dict[group_name]:
-                group_dict[group_name][_class.get_name()] = {}
+            class_set = Class.make_class_set(choosen_class_name, class_type_list, min_class_times, max_class_times)
+            for _class in class_set:
+                if group_name not in group_dict:
+                    group_dict[group_name] = {}
+                
+                if _class.get_name() not in group_dict[group_name]:
+                    group_dict[group_name][_class.get_name()] = {}
 
-            group_dict[group_name][_class.get_name()]["class_type"] = _class.get_class_type()
-            group_dict[group_name][_class.get_name()]["times"] = _class.get_times()
-            group_dict[group_name][_class.get_name()]["teacher"] = random.choice(teacher_name_list)
+                group_dict[group_name][_class.get_name()]["class_type"] = _class.get_class_type()
+                group_dict[group_name][_class.get_name()]["times"] = _class.get_times()
+                group_dict[group_name][_class.get_name()]["teacher"] = random.choice(teacher_name_list)
 
     return group_dict
 
 def generate():
     generator_config = load_config(generator_config_path)
-    group_list = generator_config["groups"][0]
+    group_list = []
 
-    group_dict = generate_classes(group_list, 6, generator_config)
+    for i in range(2):
+        group_list.append(generator_config["groups"][i])
+
+    group_dict = generate_classes(group_list, 7, generator_config)
     with open(os.path.join(config_dir, "group_config.json"), "w", encoding = "utf-8") as group_config_file:
         json.dump(group_dict, group_config_file, indent=4, ensure_ascii=False)
 

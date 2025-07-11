@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Расписание</title>
+
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+	<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+
+<body>
+	<div class="container mt-4 text-center" id="table-wrapper">
+        <table class="table text-white" id="table-main">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Data</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {% for i in range(entity_list_len) %}
+                <tr>
+                    <td>{{ i }}</td>
+                    <td>{{ entities[i] }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+	</div>
+</body>
+
+</html>

@@ -23,3 +23,6 @@ class Space:
     
     def get(self, entity_id: int):
         return self.entities[entity_id]
+    
+    def get_entities(self):
+        return self.entities

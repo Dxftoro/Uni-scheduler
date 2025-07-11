@@ -12,7 +12,8 @@ script_dir = os.path.dirname(sys.argv[0])
 config_dir = os.path.join(script_dir, "config")
 
 schedule_model = None
-key = ""
+global_space = Space()
+input_key = ""
 
 app = Flask(__name__, template_folder="./pages")
 def run_flask_app():
@@ -35,18 +36,14 @@ def render_schedules():
 
     timeslots = schedule_model.get_group_timeslots()
     states = schedule_model.get_teacher_states()
-    message = ""
 
-    for group_id, slots in timeslots.items():
-        message += str(group_id) + ":\n"
-        for row in slots:
-            message += str(row) + "\n"
-        message += "\n\n"
+    return render_template("index.html", timeslots=timeslots, states=states)
 
-    for state in states:
-        message += state.name + "\n"
-
-    return render_template("index.html", timeslots=timeslots, states=states, message=message)
+@app.route("/space")
+def render_global_space():
+    entities = global_space.get_entities()
+    entity_list_len = len(entities)
+    return render_template("space.html", entities=entities, entity_list_len=entity_list_len)
 
 def load_config(config_path: str) -> dict:
     input_dict = {}
@@ -65,7 +62,8 @@ def make_timeslots(day_count, class_count):
 
 def main():
     global schedule_model
-    global key
+    global global_space
+    global input_key
 
     main_config = load_config(main_config_path)
     group_config = load_config(group_config_path)
@@ -75,15 +73,14 @@ def main():
     period_size = week_day_count * week_parity
     empty_timeslots = make_timeslots(period_size, main_config["class_max_count"])
 
-    global_space = Space()
-    schedule_model = ScheduleModel(empty_timeslots, group_config, global_space)
+    schedule_model = ScheduleModel(empty_timeslots, week_parity, group_config, global_space)
     
     flask_thread = threading.Thread(target=run_flask_app)
     flask_thread.start()
 
     try:
-        while key != "e":
-            key = str(input("-----------------> STEP <-----------------"))
+        while input_key != "e":
+            input_key = str(input("-----------------> STEP <-----------------"))
             schedule_model.step()
     except Exception as exc:
         print(exc)

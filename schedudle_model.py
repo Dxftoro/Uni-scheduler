@@ -13,13 +13,9 @@ def get_intersection(dict1: dict, dict2: dict) -> set:
             #print(f"Общие пары ключ-значение (вложенные циклы): {common_items}")
     return intersection
 
-def has_intersection_by_id(timeslots1: list, timeslots2: list, class_id) -> bool:
-    for day_i, day in enumerate(timeslots1):
-        for slot_i, slot in enumerate(day):
-            if slot == class_id and timeslots2[day_i][slot_i] == class_id:
-                #print(f"Found intersection in [{day_i}][{slot_i}]")
-                return True
-    return False
+def week_num(day: int, parity_rank: int, period_len: int):
+    day_per_week = period_len // parity_rank
+    return day // day_per_week
 
 class AgentType(Enum):
     TEACHER =   0,
@@ -129,6 +125,16 @@ class TeacherAgent(SendingAgent):
         self.groups_subjprefs = []
         self.current_subjpref_index = 0
 
+    def _has_intersection(self, timeslots2: list, week: int, class_id) -> bool:
+        parity_rank = self.model.get_parity_rank()
+
+        for day_i, day in enumerate(self.timeslots):
+            for slot_i, slot in enumerate(day):
+                if week == week_num(day_i, parity_rank, len(self.timeslots)) and slot == class_id and timeslots2[day_i][slot_i] == class_id:
+                    #print(f"Found intersection in [{day_i}][{slot_i}]")
+                    return True
+        return False
+
     def __init__(self, model, self_id, timeslots, owned_classes, owned_groups):
         if not isinstance(owned_classes, list):
             owned_classes = [owned_classes]
@@ -148,7 +154,12 @@ class TeacherAgent(SendingAgent):
         self.current_subjpref_index = 0
 
         for owned_class in owned_classes:
-            self.owned_classes.append({"id": owned_class, "solution": SolutionType.UNDEFINED})
+            for _ in range(owned_class[1][1]):
+                self.owned_classes.append({
+                    "id": owned_class[0],
+                    "week": owned_class[1][0],
+                    "solution": SolutionType.UNDEFINED
+                })
     
     def on_receive(self):
         message = self.get_last_message()
@@ -157,6 +168,7 @@ class TeacherAgent(SendingAgent):
     def step(self):
         if self.state == TeacherState.ASK_WHEN_AVAIL:
             all_empty = True
+            week = self.owned_classes[self.viewing_class]["week"]
 
             for group_id in self.owned_groups:
                 request = Message(MessageType.WHENAVAIL, self.owned_classes[self.viewing_class])
@@ -166,7 +178,7 @@ class TeacherAgent(SendingAgent):
 
                 response = self.pop_last_message()
                 if response.get_type() == MessageType.USERAVAIL:
-                    all_empty = not has_intersection_by_id(self.timeslots, response.get_content(), None) # !!!
+                    all_empty = not self._has_intersection(response.get_content(), week, None) # !!!
                 else:
                     raise Exception(f"USERAVAIL expected. Got {response.get_type()}")
             
@@ -183,7 +195,7 @@ class TeacherAgent(SendingAgent):
             self.groups_subjprefs = []
 
             for group_id in self.owned_groups:
-                request = Message(MessageType.EVALUATE, self.owned_classes[self.viewing_class]["id"])
+                request = Message(MessageType.EVALUATE, self.owned_classes[self.viewing_class])
                 request.set_receiver(group_id)
                 request.set_sender(self.get_id())
                 self.send_message(request, group_id)
@@ -257,11 +269,13 @@ class GroupAgent(SendingAgent):
 
         elif message.get_type() == MessageType.EVALUATE:
             subjpref = []
+            week = message.get_content()["week"]
+            parity_rank = self.model.get_parity_rank()
+
             for day_i in range(len(self.timeslots)):
                 for slot_i in range(len(self.timeslots[day_i])):
-                    if self.timeslots[day_i][slot_i] is None:
+                    if self.timeslots[day_i][slot_i] is None and week == week_num(day_i, parity_rank, len(self.timeslots)):
                         subjpref.append((day_i, slot_i))
-                        #print(f"Found a free time on [{day_i}][{slot_i}]")
             
             if len(subjpref):
                 response = Message(MessageType.SUBJPREFS, subjpref)
@@ -311,10 +325,14 @@ class ScheduleModel(Model):
                 if not (teacher_id in self.teacher_ids):
                     self.teacher_ids[teacher_id] = {}
                 
-                if "owned_classes" in self.teacher_ids[teacher_id]:
-                    self.teacher_ids[teacher_id]["owned_classes"].add(class_id)
-                else:
-                    self.teacher_ids[teacher_id]["owned_classes"] = {class_id}
+                for i, time in enumerate(class_info["times"]):
+#                   owned_class: tuple (id, appearance)
+#                   appearance: tuple (week number, count of class repeats (it's called "time"))
+
+                    if "owned_classes" in self.teacher_ids[teacher_id]:
+                        self.teacher_ids[teacher_id]["owned_classes"].add((class_id, (i, time)))
+                    else:
+                        self.teacher_ids[teacher_id]["owned_classes"] = {(class_id, (i, time))}
 
                 if "owned_groups" in self.teacher_ids[teacher_id]:
                     self.teacher_ids[teacher_id]["owned_groups"].add(group_id)
@@ -346,7 +364,7 @@ class ScheduleModel(Model):
             )
             self.sending_agents.append(next(iter(teacher_agent_set)))
 
-    def __init__(self, default_timeslots: list, group_config: dict, global_space: Space):
+    def __init__(self, default_timeslots: list, parity_rank: int, group_config: dict, global_space: Space):
         super().__init__(seed=0)
         self.agents # !!!
 
@@ -356,6 +374,7 @@ class ScheduleModel(Model):
         self.room_ids = []
         self.teacher_ids = {}
         self.sending_agents = []
+        self.parity_rank = parity_rank
 
         self._make_ids(group_config, global_space)
         self._make_agents(default_timeslots)
@@ -376,3 +395,6 @@ class ScheduleModel(Model):
             if isinstance(agent, TeacherAgent):
                 states.append(agent.state)
         return states
+    
+    def get_parity_rank(self):
+        return self.parity_rank
