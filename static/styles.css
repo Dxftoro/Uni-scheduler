@@ -25,3 +25,8 @@ tr {
 .list-group-item {
 	background-color: #1f1f1f;
 }
+
+#message-log-wrapper {
+	width: 380px;
+  	height: 270px;
+}

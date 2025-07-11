@@ -10,32 +10,46 @@
 </head>
 
 <body>
-	<div class="container mt-4 text-center" id="table-wrapper">
+	<div class="container mt-3 col-md-10 text-center" id="table-wrapper">
         <div class="row">
-            <ul class="list-group text-left">
             {% for group_id, slots in timeslots.items() %}
-                <li class="list-group-item py-1"><strong>Группа {{ group_id }}:</strong></li>
-                    {% for row in slots %}
-                        <li class="list-group-item py-0">{{ row }}</li>
-                    {% endfor %}
+            <div col="col-3">
+                <ul class="list-group text-left">
+                    <li class="list-group-item py-1"><strong>Группа {{ group_id }}:</strong></li>
+                        {% for row in slots %}
+                            <li class="list-group-item py-0">{{ row }}</li>
+                        {% endfor %}
+                </ul>
+            </div>
             {% endfor %}
-            </ul>
         </div>
 
         <div class="row mt-4">
-            <ul class="list-group text-left">
-                <strong>Состояния преподавателей:</strong>
-            {% for state in states %}
-                <li>{{ state.name }}</li>
-            {% endfor %}
-            </ul>
-        </div>
-
-        <form action="" method="post">
-            <div class="form-group">
-                <button type="submit" class="btn btn-light">Следующий шаг</button>
+            <div class="col-3" id="teacher-state-wrapper">
+                <ul class="list-group text-left">
+                    <strong>Состояния преподавателей:</strong>
+                {% for state in states %}
+                    <li>{{ state.name }}</li>
+                {% endfor %}
+                </ul>
             </div>
-        </form>
+            <div class="col-7 overflow-auto" id="message-log-wrapper">
+                <ul class="list-group text-left">
+                {% for message in message_log | reverse %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+                </ul>>
+            </div>
+            <div class="col-auto text-center">
+                <div class="row">
+                    <form action="" method="post">
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-light">Следующий шаг</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 	</div>
 </body>
 

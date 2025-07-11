@@ -36,14 +36,24 @@ def render_schedules():
 
     timeslots = schedule_model.get_group_timeslots()
     states = schedule_model.get_teacher_states()
+    message_log = schedule_model.get_message_log()
 
-    return render_template("index.html", timeslots=timeslots, states=states)
+    return render_template("index.html", 
+        timeslots=timeslots, 
+        states=states, 
+        message_log=message_log,
+        message_log_len=len(message_log))
 
 @app.route("/space")
 def render_global_space():
     entities = global_space.get_entities()
     entity_list_len = len(entities)
     return render_template("space.html", entities=entities, entity_list_len=entity_list_len)
+
+@app.route("/shutdown")
+def stop_app():
+    shutdown_server()
+    return "Server is about to shutdown!"
 
 def load_config(config_path: str) -> dict:
     input_dict = {}

@@ -94,7 +94,9 @@ class SendingAgent(Agent):
         else:
             for agent in self.model.sending_agents:
                 if agent.get_id() == receiver_id:
-                    print(f"{type(self)} sent to {type(agent)} a message of type {message.get_type()}")
+                    log_part = f"{type(self)}[{self.get_id()}] sent to {type(agent)}[{agent.get_id()}] a message of type {message.get_type()}"
+                    self.model.log_message(log_part)
+                    print(log_part)
                     agent.receive_message(message)
                     break
     
@@ -154,10 +156,11 @@ class TeacherAgent(SendingAgent):
         self.current_subjpref_index = 0
 
         for owned_class in owned_classes:
-            for _ in range(owned_class[1][1]):
+            for _ in range(owned_class[2][1]):
                 self.owned_classes.append({
                     "id": owned_class[0],
-                    "week": owned_class[1][0],
+                    "group_id": owned_class[1],
+                    "week": owned_class[2][0],
                     "solution": SolutionType.UNDEFINED
                 })
     
@@ -214,14 +217,14 @@ class TeacherAgent(SendingAgent):
         
         elif self.state == TeacherState.PROPOSE_TIME:
             if not len(self.groups_subjprefs):
-                raise Exception(f"Teacher {self.get_id()} has empty groups_subjprefs!")
+                self.model.log_message(f"Teacher {self.get_id()} has empty groups_subjprefs!!!")
 
             if self.current_subjpref_index >= len(self.groups_subjprefs):
                 self.state = TeacherState.SOLNOT_FOUND
                 return
 
             subjpref = self.groups_subjprefs[self.current_subjpref_index]
-            
+
             for group_id in self.owned_groups:
                 timeproposal = (self.owned_classes[self.viewing_class]["id"],
                     subjpref[0], subjpref[1]
@@ -235,12 +238,13 @@ class TeacherAgent(SendingAgent):
                 if response.get_type() == MessageType.ACCEPT:
                     self.timeslots[subjpref[0]][subjpref[1]] = self.owned_classes[self.viewing_class]["id"]
                     self.state = TeacherState.FIX_MEETING
-                    break
+                    return
                 elif response.get_type() == MessageType.REJECT:
-                    self.current_subjpref_index += 1
-                    break
+                    self.model.log_message(f"Group {group_id} rejected {subjpref}!")
                 else:
                     raise Exception(f"ACCEPT or REJECT expected. Got {response.get_type()}")
+
+                self.current_subjpref_index += 1
         
         elif self.state == TeacherState.SOLNOT_FOUND:
             print(f"Teacher {self.get_id()} didn't find solution for this class!")
@@ -277,13 +281,13 @@ class GroupAgent(SendingAgent):
                     if self.timeslots[day_i][slot_i] is None and week == week_num(day_i, parity_rank, len(self.timeslots)):
                         subjpref.append((day_i, slot_i))
             
-            if len(subjpref):
-                response = Message(MessageType.SUBJPREFS, subjpref)
-                response.set_sender(self.get_id())
-                response.set_receiver(message.get_sender())
-                self.send_message(response, message.get_sender())
-            else:
-                raise Exception(f"Group {self.get_id()} has no subjprefs!")
+            if not len(subjpref):
+                self.model.log_message(f"{self.get_id()} has empty subjprefs!!!")
+            
+            response = Message(MessageType.SUBJPREFS, subjpref)
+            response.set_sender(self.get_id())
+            response.set_receiver(message.get_sender())
+            self.send_message(response, message.get_sender())
         
         elif message.get_type() == MessageType.TIMEPROPOSAL:
             class_id = message.get_content()[0]
@@ -292,7 +296,7 @@ class GroupAgent(SendingAgent):
 
             if self.timeslots[day_i][slot_i] is None:
                 self.last_timepropose = (day_i, slot_i)
-                self.timeslots[day_i][slot_i] = class_id
+                self.timeslots[day_i][slot_i] = (class_id, message.get_sender())
                 response = Message(MessageType.ACCEPT, None)
                 response.set_sender(self.get_id())
                 response.set_receiver(message.get_sender())
@@ -326,13 +330,13 @@ class ScheduleModel(Model):
                     self.teacher_ids[teacher_id] = {}
                 
                 for i, time in enumerate(class_info["times"]):
-#                   owned_class: tuple (id, appearance)
+#                   owned_class: tuple (id, group id, appearance)
 #                   appearance: tuple (week number, count of class repeats (it's called "time"))
 
                     if "owned_classes" in self.teacher_ids[teacher_id]:
-                        self.teacher_ids[teacher_id]["owned_classes"].add((class_id, (i, time)))
+                        self.teacher_ids[teacher_id]["owned_classes"].add((class_id, group_id, (i, time)))
                     else:
-                        self.teacher_ids[teacher_id]["owned_classes"] = {(class_id, (i, time))}
+                        self.teacher_ids[teacher_id]["owned_classes"] = {(class_id, group_id, (i, time))}
 
                 if "owned_groups" in self.teacher_ids[teacher_id]:
                     self.teacher_ids[teacher_id]["owned_groups"].add(group_id)
@@ -349,10 +353,6 @@ class ScheduleModel(Model):
             self.sending_agents.append(next(iter(group_agent_set)))
 
         for teacher_id, teacher_property in self.teacher_ids.items():
-            print("Тип teacher_property:", type(teacher_property))  # Должен быть dict
-            print("Тип owned_classes:", type(teacher_property["owned_classes"]))  # Должен быть set
-            print("Значение owned_classes:", teacher_property["owned_classes"])  # Должно быть {18}, а не 18
-
             if not len(teacher_property["owned_classes"]) or not len(teacher_property["owned_groups"]):
                 raise Exception("Teacher property can't be empty!")
 
@@ -374,6 +374,7 @@ class ScheduleModel(Model):
         self.room_ids = []
         self.teacher_ids = {}
         self.sending_agents = []
+        self.message_log = []
         self.parity_rank = parity_rank
 
         self._make_ids(group_config, global_space)
@@ -396,5 +397,11 @@ class ScheduleModel(Model):
                 states.append(agent.state)
         return states
     
+    def log_message(self, log_part: str):
+        self.message_log.append(log_part)
+
+    def get_message_log(self):
+        return self.message_log
+
     def get_parity_rank(self):
         return self.parity_rank
