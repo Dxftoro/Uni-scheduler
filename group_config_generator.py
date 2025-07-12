@@ -110,7 +110,7 @@ def generate():
     generator_config = load_config(generator_config_path)
     group_list = []
 
-    for i in range(2):
+    for i in range(4):
         group_list.append(generator_config["groups"][i])
 
     group_dict = generate_classes(group_list, 7, generator_config)

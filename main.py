@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 import threading
 from schedudle_model import ScheduleModel
 from entity_system import Space
@@ -81,7 +82,10 @@ def main():
     week_day_count = len(main_config["week_days"])
     week_parity = len(main_config["week_parity"])
     period_size = week_day_count * week_parity
-    empty_timeslots = make_timeslots(period_size, main_config["class_max_count"])
+    empty_timeslots = {
+        "class_min_count": main_config["class_min_count"],
+        "timeslots": make_timeslots(period_size, main_config["class_max_count"])
+    }
 
     schedule_model = ScheduleModel(empty_timeslots, week_parity, group_config, global_space)
     
@@ -90,8 +94,9 @@ def main():
 
     try:
         while input_key != "e":
-            input_key = str(input("-----------------> STEP <-----------------"))
+            #input_key = str(input("-----------------> STEP <-----------------"))
             schedule_model.step()
+            time.sleep(0.25)
     except Exception as exc:
         print(exc)
         #shutdown_server()

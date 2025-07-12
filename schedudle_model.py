@@ -1,4 +1,5 @@
 import copy
+import random
 import mesa
 from mesa import Agent, Model
 from enum import Enum
@@ -170,22 +171,23 @@ class TeacherAgent(SendingAgent):
 
     def step(self):
         if self.state == TeacherState.ASK_WHEN_AVAIL:
-            all_empty = True
+            empty_intersection = True
             week = self.owned_classes[self.viewing_class]["week"]
+            group_id = self.owned_classes[self.viewing_class]["group_id"]
 
-            for group_id in self.owned_groups:
-                request = Message(MessageType.WHENAVAIL, self.owned_classes[self.viewing_class])
-                request.set_receiver(group_id)
-                request.set_sender(self.get_id())
-                self.send_message(request, group_id)
+            #for group_id in self.owned_groups:
+            request = Message(MessageType.WHENAVAIL, self.owned_classes[self.viewing_class])
+            request.set_receiver(group_id)
+            request.set_sender(self.get_id())
+            self.send_message(request, group_id)
 
-                response = self.pop_last_message()
-                if response.get_type() == MessageType.USERAVAIL:
-                    all_empty = not self._has_intersection(response.get_content(), week, None) # !!!
-                else:
-                    raise Exception(f"USERAVAIL expected. Got {response.get_type()}")
+            response = self.pop_last_message()
+            if response.get_type() == MessageType.USERAVAIL:
+                empty_intersection = not self._has_intersection(response.get_content(), week, None) # !!!
+            else:
+                raise Exception(f"USERAVAIL expected. Got {response.get_type()}")
             
-            if all_empty:
+            if empty_intersection:
                 self.state = TeacherState.IMPOSS_MEETING
             else:
                 self.state = TeacherState.ASK_SUBJ_PREFS
@@ -195,27 +197,30 @@ class TeacherAgent(SendingAgent):
             self._next_class(SolutionType.SOLUTION_NOT_FOUND)
 
         elif self.state == TeacherState.ASK_SUBJ_PREFS:
+            group_id = self.owned_classes[self.viewing_class]["group_id"]
             self.groups_subjprefs = []
 
-            for group_id in self.owned_groups:
-                request = Message(MessageType.EVALUATE, self.owned_classes[self.viewing_class])
-                request.set_receiver(group_id)
-                request.set_sender(self.get_id())
-                self.send_message(request, group_id)
+            #for group_id in self.owned_groups:
+            request = Message(MessageType.EVALUATE, self.owned_classes[self.viewing_class])
+            request.set_receiver(group_id)
+            request.set_sender(self.get_id())
+            self.send_message(request, group_id)
 
 #               на этом этапе предпочтение - это свободный таймслот у группы
 #               получаемое предпочтение: (id дня учебного ПЕРИОДА, номер пары)
 #               получаем список предпочтений
 
-                response = self.pop_last_message()
-                if response.get_type() == MessageType.SUBJPREFS:
-                    self.groups_subjprefs += response.get_content()
-                else:
-                    raise Exception(f"SUBJPREFS expected. Got {response.get_type()}")
+            response = self.pop_last_message()
+            if response.get_type() == MessageType.SUBJPREFS:
+                self.groups_subjprefs += response.get_content()
+            else:
+                raise Exception(f"SUBJPREFS expected. Got {response.get_type()}")
 
             self.state = TeacherState.PROPOSE_TIME
         
         elif self.state == TeacherState.PROPOSE_TIME:
+            group_id = self.owned_classes[self.viewing_class]["group_id"]
+
             if not len(self.groups_subjprefs):
                 self.model.log_message(f"Teacher {self.get_id()} has empty groups_subjprefs!!!")
 
@@ -224,27 +229,30 @@ class TeacherAgent(SendingAgent):
                 return
 
             subjpref = self.groups_subjprefs[self.current_subjpref_index]
-
-            for group_id in self.owned_groups:
-                timeproposal = (self.owned_classes[self.viewing_class]["id"],
-                    subjpref[0], subjpref[1]
-                )
-                request = Message(MessageType.TIMEPROPOSAL, timeproposal)
-                request.set_receiver(group_id)
-                request.set_sender(self.get_id())
-                self.send_message(request, group_id)
-
-                response = self.pop_last_message()
-                if response.get_type() == MessageType.ACCEPT:
-                    self.timeslots[subjpref[0]][subjpref[1]] = self.owned_classes[self.viewing_class]["id"]
-                    self.state = TeacherState.FIX_MEETING
-                    return
-                elif response.get_type() == MessageType.REJECT:
-                    self.model.log_message(f"Group {group_id} rejected {subjpref}!")
-                else:
-                    raise Exception(f"ACCEPT or REJECT expected. Got {response.get_type()}")
-
+            if not (self.timeslots[subjpref[0]][subjpref[1]] is None):
                 self.current_subjpref_index += 1
+                return
+
+            #for group_id in self.owned_groups:
+            timeproposal = (self.owned_classes[self.viewing_class]["id"],
+                subjpref[0], subjpref[1]
+            )
+            request = Message(MessageType.TIMEPROPOSAL, timeproposal)
+            request.set_receiver(group_id)
+            request.set_sender(self.get_id())
+            self.send_message(request, group_id)
+
+            response = self.pop_last_message()
+            if response.get_type() == MessageType.ACCEPT:
+                self.timeslots[subjpref[0]][subjpref[1]] = self.owned_classes[self.viewing_class]["id"]
+                self.state = TeacherState.FIX_MEETING
+                return
+            elif response.get_type() == MessageType.REJECT:
+                self.model.log_message(f"Group {group_id} rejected {subjpref}!")
+            else:
+                raise Exception(f"ACCEPT or REJECT expected. Got {response.get_type()}")
+
+            self.current_subjpref_index += 1
         
         elif self.state == TeacherState.SOLNOT_FOUND:
             print(f"Teacher {self.get_id()} didn't find solution for this class!")
@@ -316,10 +324,17 @@ class GroupAgent(SendingAgent):
         return self.timeslots
 
 class ScheduleModel(Model):
-    def _make_ids(self, group_config: dict, global_space: Space):
+    def _make_ids(self, group_config: dict, global_space: Space) -> int:
         for group_name, group_plan in group_config.items():
             group_id = global_space.match(group_name)
             self.group_ids.append(group_id)
+
+            self.group_times[group_id] = [0,] * self.parity_rank
+            for class_name, class_info in group_plan.items():
+                for i in range(len(class_info["times"])):
+                    self.group_times[group_id][i] += class_info["times"][i]
+            
+            self.log_message(f"Times of group {group_id}: {self.group_times[group_id]}")
 
             for class_name, class_info in group_plan.items():
                 class_id = global_space.match(class_name)
@@ -343,13 +358,40 @@ class ScheduleModel(Model):
                 else:
                     self.teacher_ids[teacher_id]["owned_groups"] = {group_id}
         
-        print("Group ids: ", self.group_ids)
-        print("Class ids: ", self.class_ids)
-        print("Teacher ids: ", self.teacher_ids)
+        self.log_message(f"Group ids: {self.group_ids}")
+        self.log_message(f"Class ids: {self.class_ids}")
+        self.log_message(f"Teacher ids: {self.teacher_ids}")
+        return global_space.match("This slot is blocked for capturing!")
 
-    def _make_agents(self, default_timeslots: list):
+    def _make_timeslots(self, group_id: int, slot_blocked_id: int):
+        class_min_count = self.default_timeslots["class_min_count"]
+        new_timeslots = copy.deepcopy(self.default_timeslots["timeslots"])
+        slot_per_day = len(new_timeslots[0])
+        day_count = len(new_timeslots)
+        day_per_week = day_count // self.parity_rank
+        #day_checklist = [slot_per_day - 1,] * len(new_timeslots)
+
+        for time_i in range(len(self.group_times[group_id])):
+            used_slot_count = self.group_times[group_id][time_i]
+            free_slot_count = (slot_per_day * day_per_week) - used_slot_count
+
+            #print(f"{slot_per_day * day_per_week} {used_slot_count} Week {time_i} of group {group_id} has {free_slot_count} free slots")
+
+            for day_i in range(time_i * day_per_week, (time_i * day_per_week) + day_per_week):
+                slot_to_block = slot_per_day - 1
+                if free_slot_count <= 0: break
+
+                while slot_to_block >= class_min_count:
+                    new_timeslots[day_i][slot_to_block] = slot_blocked_id
+                    slot_to_block -= 1
+                    free_slot_count -= 1
+                    if not free_slot_count: break
+
+        return new_timeslots
+
+    def _make_agents(self, default_timeslots: list, slot_blocked_id: int):
         for group_id in self.group_ids:
-            group_agent_set = GroupAgent.create_agents(self, 1, group_id, copy.deepcopy(default_timeslots))
+            group_agent_set = GroupAgent.create_agents(self, 1, group_id, self._make_timeslots(group_id, slot_blocked_id))
             self.sending_agents.append(next(iter(group_agent_set)))
 
         for teacher_id, teacher_property in self.teacher_ids.items():
@@ -366,6 +408,7 @@ class ScheduleModel(Model):
 
     def __init__(self, default_timeslots: list, parity_rank: int, group_config: dict, global_space: Space):
         super().__init__(seed=0)
+        random.seed(0)
         self.agents # !!!
 
         self.default_timeslots = default_timeslots
@@ -376,9 +419,10 @@ class ScheduleModel(Model):
         self.sending_agents = []
         self.message_log = []
         self.parity_rank = parity_rank
+        self.group_times = {}
 
-        self._make_ids(group_config, global_space)
-        self._make_agents(default_timeslots)
+        slot_blocked_id = self._make_ids(group_config, global_space)
+        self._make_agents(self.default_timeslots["timeslots"], slot_blocked_id)
     
     def step(self):
         self.agents.shuffle_do("step")
@@ -405,3 +449,12 @@ class ScheduleModel(Model):
 
     def get_parity_rank(self):
         return self.parity_rank
+
+    def check_group_teacher_collisions(self):
+        day_count = len(self.default_timeslots)
+        slot_count = len(self.default_timeslots[0])
+        
+        for day_i in range(day_count):
+            for slot_i in range(slot_count):
+                for agent in self.sending_agents:
+                    if not isinstance(agent, GroupAgent): continue
