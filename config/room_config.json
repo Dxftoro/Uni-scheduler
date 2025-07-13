@@ -1,0 +1,38 @@
+{
+    "100a": {
+        "supported_class_types": ["лек.", "лаб."],
+        "tools": ["Проектор"]
+    },
+    "100b": {
+        "supported_class_types": ["лек."],
+        "tools": ["Проектор"]
+    },
+    "101": {
+        "supported_class_types": ["лек.", "лаб."],
+        "tools": ["Проектор"]
+    },
+    "102": {
+        "supported_class_types": ["лек."],
+        "tools": ["Проектор"]
+    },
+    "103": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "104": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "105a": {
+        "supported_class_types": ["лек."],
+        "tools": "Проектор"
+    },
+    "105b": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Нет"]
+    },
+    "106": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Нет"]
+    }
+}

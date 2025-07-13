@@ -9,6 +9,7 @@ from flask import Flask, render_template, request
 
 main_config_path = "main_config.json"
 group_config_path = "group_config.json"
+room_config_path = "room_config.json"
 script_dir = os.path.dirname(sys.argv[0])
 config_dir = os.path.join(script_dir, "config")
 
@@ -94,9 +95,9 @@ def main():
 
     try:
         while input_key != "e":
-            #input_key = str(input("-----------------> STEP <-----------------"))
+            input_key = str(input("-----------------> STEP <-----------------"))
             schedule_model.step()
-            time.sleep(0.25)
+            #time.sleep(0.25)
     except Exception as exc:
         print(exc)
         #shutdown_server()
