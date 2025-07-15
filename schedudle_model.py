@@ -113,7 +113,23 @@ class SendingAgent(Agent):
     
     def pop_last_message(self) -> Message:
         return self.message_box.pop()
+
+class ClassInfo:
+    def __init__(self, class_name: str, class_info: dict, group_id: int, global_space: Space):
+        self.id = global_space.match(class_name)
+        self.group_id = group_id
+        self.type = global_space.match(class_info["type"])
+        self.times = ()
+
+        class_tools = []
+        for tool in class_info["tools"]:
+            tool_id = global_space.match(tool)
+            class_tools.append(tool_id)
+        self.tools = tuple(class_tools)
     
+    def set_times(self, class_times: tuple):
+        self.class_times = class_times
+
 class TeacherAgent(SendingAgent):
     def _next_class(self, mark_previous_as):
         self.owned_classes[self.viewing_class]["solution"] = mark_previous_as
@@ -157,11 +173,13 @@ class TeacherAgent(SendingAgent):
         self.current_subjpref_index = 0
 
         for owned_class in owned_classes:
-            for _ in range(owned_class[2][1]):
+            for _ in range(owned_class.times[1]):
                 self.owned_classes.append({
-                    "id": owned_class[0],
-                    "group_id": owned_class[1],
-                    "week": owned_class[2][0],
+                    "id": owned_class.id,
+                    "group_id": owned_class.group_id,
+                    "type_id": owned_class.type,
+                    "week": owned_class.times[0],
+                    "tools": owned_class.tools,
                     "solution": SolutionType.UNDEFINED
                 })
     
@@ -234,9 +252,7 @@ class TeacherAgent(SendingAgent):
                 return
 
             #for group_id in self.owned_groups:
-            timeproposal = (self.owned_classes[self.viewing_class]["id"],
-                subjpref[0], subjpref[1]
-            )
+            timeproposal = (self.owned_classes[self.viewing_class]["id"], subjpref[0], subjpref[1])
             request = Message(MessageType.TIMEPROPOSAL, timeproposal)
             request.set_receiver(group_id)
             request.set_sender(self.get_id())
@@ -244,8 +260,8 @@ class TeacherAgent(SendingAgent):
 
             response = self.pop_last_message()
             if response.get_type() == MessageType.ACCEPT:
-                self.timeslots[subjpref[0]][subjpref[1]] = self.owned_classes[self.viewing_class]["id"]
-                self.state = TeacherState.FIX_MEETING
+                self.timeslots[subjpref[0]][subjpref[1]] = (self.owned_classes[self.viewing_class]["id"], None)
+                self.state = TeacherState.PROPOSE_LOCATION
                 return
             elif response.get_type() == MessageType.REJECT:
                 self.model.log_message(f"Group {group_id} rejected {subjpref}!")
@@ -257,18 +273,53 @@ class TeacherAgent(SendingAgent):
         elif self.state == TeacherState.SOLNOT_FOUND:
             print(f"Teacher {self.get_id()} didn't find solution for this class!")
             self._next_class(SolutionType.SOLUTION_NOT_FOUND)
+        
+        elif self.state == TeacherState.PROPOSE_LOCATION:
+            subjpref = self.groups_subjprefs[self.current_subjpref_index]
+            locproposal = (self.owned_classes[self.viewing_class], subjpref[0], subjpref[1])
+
+            request = Message(MessageType.LOCPROPOSAL, locproposal)
+            request.set_receiver(self.model.room_agent_id)
+            request.set_sender(self.get_id())
+            self.send_message(request, self.model.room_agent_id)
+
+            response = self.pop_last_message()
+            if response.get_type() == MessageType.ACCEPT:
+                room_id = response.get_content()
+                self.timeslots[subjpref[0]][subjpref[1]][1] = room_id
+
+                group_request = Message(
+                    MessageType.FIXMEETING,
+                    (subjpref[0], subjpref[1], room_id), self.get_id(), group_id
+                )
+                self.send_message(group_request, group_id)
+                self.state = TeacherState.FIX_MEETING
+
+            elif response.get_type() == MessageType.REJECT:
+                self.timeslots[subjpref[0]][subjpref[1]] = None
+                
+                group_request = Message(
+                    MessageType.CANCEL_MEETING, 
+                    (subjpref[0], subjpref[1]), self.get_id(), group_id
+                )
+                self.send_message(group_request, group_id)
+                self.current_subjpref_index += 1
+                self.state = TeacherState.PROPOSE_TIME
+
+            else:
+                raise Exception(f"ACCEPT or REJECT expected. Got {response.get_type()}")
 
         elif self.state == TeacherState.FIX_MEETING:
-            for group_id in self.owned_groups:
-                request = Message(MessageType.FIXMEETING, None, self.get_id(), group_id)
-                self.send_message(request, group_id)
+            #for group_id in self.owned_groups:
+                #request = Message(MessageType.FIXMEETING, None, self.get_id(), group_id)
+                #self.send_message(request, group_id)
             self._next_class(SolutionType.SOLUTION_FOUND)
 
 class GroupAgent(SendingAgent):
     def __init__(self, model, self_id, timeslots):
         super().__init__(self_id, model)
         self.timeslots = timeslots
-        self.last_timepropose = ()
+        self.planned_meetings = {}
 
     def on_receive(self):
         message = self.get_last_message()
@@ -303,8 +354,8 @@ class GroupAgent(SendingAgent):
             slot_i = message.get_content()[2]
 
             if self.timeslots[day_i][slot_i] is None:
-                self.last_timepropose = (day_i, slot_i)
-                self.timeslots[day_i][slot_i] = (class_id, message.get_sender())
+                #self.planned_meetings[message.get_sender()] = (day_i, slot_i, None)
+                self.timeslots[day_i][slot_i] = (class_id, message.get_sender(), None)
                 response = Message(MessageType.ACCEPT, None)
                 response.set_sender(self.get_id())
                 response.set_receiver(message.get_sender())
@@ -313,6 +364,25 @@ class GroupAgent(SendingAgent):
                 print(f"Timeslot [{day_i}][{slot_i}] is {self.timeslots[day_i][slot_i]}")
                 response = Message(MessageType.REJECT, None, self.get_id(), message.get_sender())
                 self.send_message(response, message.get_sender())
+
+        elif message.get_type() == MessageType.FIXMEETING:
+            day_i = message.get_content()[0]
+            slot_i = message.get_content()[1]
+            room_id = message.get_content()[2]
+
+            if not isinstance(self.timeslots[day_i][slot_i], tuple):
+                raise Exception(f"Agent [{message.get_sender()}] tried to set meeting on unsuitable timeslot!")
+            
+            self.timeslots[day_i][slot_i][2] = room_id
+        
+        elif message.get_type() == MessageType.CANCEL_MEETING:
+            day_i = message.get_content()[0]
+            slot_i = message.get_content()[1]
+
+            if not isinstance(self.timeslots[day_i][slot_i], tuple):
+                raise Exception(f"Agent [{message.get_sender()}] tried to cancel meeting on unsuitable timeslot!")
+            
+            self.timeslots[day_i][slot_i] = None
         
         elif message.get_type() == MessageType.FIXMEETING:
             print("Meeting fixed")
@@ -322,6 +392,58 @@ class GroupAgent(SendingAgent):
     
     def get_timeslots(self):
         return self.timeslots
+
+class RoomInfo:
+    def __init__(self, room_id: int, room_info: dict, timeslots, global_space: Space):
+        self.id = room_id
+        self.supported_class_types = []
+        for type in room_info["supported_class_types"]:
+            type_id = global_space.match(type)
+            self.supported_class_types.append(type_id)
+
+        self.tools = []
+        for tool in room_info["tools"]:
+            tool_id = global_space.match(tool)
+            self.tools.append(tool_id)
+        
+        self.timeslots = timeslots
+    
+    def avaible_for(self, locproposal) -> bool:
+        class_info = locproposal[0]
+
+        if not (class_info["type"] in self.supported_class_types): return False
+        if not all(tool in self.tools for tool in class_info["tools"]): return False
+        if not (self.timeslots[locproposal[1]][locproposal[2]] is None): return False
+
+        return True
+
+class RoomAgent(SendingAgent):
+    def __init__(self, model, self_id, timeslots, room_config, global_space: Space):
+        super().__init__(self_id, model)
+
+        self.owned_rooms = []
+        for room_name, room_info in room_config.items():
+            room_id = global_space.match(room_name)
+            self.owned_rooms.append(RoomInfo(room_id, room_info, copy.deepcopy(timeslots), global_space))
+    
+    def on_receive(self):
+        message = self.get_last_message()
+
+        if message.get_type() == MessageType.LOCPROPOSAL:
+            locproposal = message.get_content()
+            day_i = locproposal[1]
+            slot_i = locproposal[2]
+
+            for room in self.owned_rooms:
+                if room.avaible_for(locproposal):
+                    room.timeslots[day_i][slot_i] = locproposal[0]["id"]
+                    response = Message(MessageType.ACCEPT, room.id, self.get_id(), message.get_sender())
+                    self.send_message(response, message.get_sender())
+                    return
+            response = Message(MessageType.REJECT, None, self.get_id(), message.get_sender())
+            self.send_message(response, message.get_sender())
+        else:
+            Exception(f"LOCPROPOSAL expected. Got {message.get_type()}")
 
 class ScheduleModel(Model):
     def _make_ids(self, group_config: dict, global_space: Space) -> int:
@@ -337,21 +459,23 @@ class ScheduleModel(Model):
             self.log_message(f"Times of group {group_id}: {self.group_times[group_id]}")
 
             for class_name, class_info in group_plan.items():
-                class_id = global_space.match(class_name)
-                self.class_ids.append(class_id)
+                _class = ClassInfo(class_name, class_info, group_id, global_space)
+                self.class_ids.append(_class.id)
 
                 teacher_id = global_space.match(class_info["teacher"])
                 if not (teacher_id in self.teacher_ids):
                     self.teacher_ids[teacher_id] = {}
                 
                 for i, time in enumerate(class_info["times"]):
-#                   owned_class: tuple (id, group id, appearance)
+                    _class.class_times = (i, time)
+#                   owned_class: tuple (id, group id, appearance, tools)
 #                   appearance: tuple (week number, count of class repeats (it's called "time"))
+#                   tools: tuple (tool1, tool2, ..., tooln)
 
                     if "owned_classes" in self.teacher_ids[teacher_id]:
-                        self.teacher_ids[teacher_id]["owned_classes"].add((class_id, group_id, (i, time)))
+                        self.teacher_ids[teacher_id]["owned_classes"].add(_class)
                     else:
-                        self.teacher_ids[teacher_id]["owned_classes"] = {(class_id, group_id, (i, time))}
+                        self.teacher_ids[teacher_id]["owned_classes"] = {_class}
 
                 if "owned_groups" in self.teacher_ids[teacher_id]:
                     self.teacher_ids[teacher_id]["owned_groups"].add(group_id)
@@ -389,7 +513,7 @@ class ScheduleModel(Model):
 
         return new_timeslots
 
-    def _make_agents(self, default_timeslots: list, slot_blocked_id: int):
+    def _make_groups_and_teachers(self, default_timeslots: list, slot_blocked_id: int):
         for group_id in self.group_ids:
             group_agent_set = GroupAgent.create_agents(self, 1, group_id, self._make_timeslots(group_id, slot_blocked_id))
             self.sending_agents.append(next(iter(group_agent_set)))
@@ -406,7 +530,7 @@ class ScheduleModel(Model):
             )
             self.sending_agents.append(next(iter(teacher_agent_set)))
 
-    def __init__(self, default_timeslots: list, parity_rank: int, group_config: dict, global_space: Space):
+    def __init__(self, default_timeslots, parity_rank: int, config: dict, global_space: Space):
         super().__init__(seed=0)
         random.seed(0)
         self.agents # !!!
@@ -421,8 +545,18 @@ class ScheduleModel(Model):
         self.parity_rank = parity_rank
         self.group_times = {}
 
-        slot_blocked_id = self._make_ids(group_config, global_space)
-        self._make_agents(self.default_timeslots["timeslots"], slot_blocked_id)
+        self.room_agent_id = global_space.match("Room agent")
+        room_agent_set = RoomAgent.create_agents(self, 1, 
+            self.room_agent_id,
+            self.default_timeslots["timeslots"],
+            config["room_config"],
+            global_space)
+        
+        room_agent = next(iter(room_agent_set))
+        self.sending_agents.append(room_agent)
+
+        slot_blocked_id = self._make_ids(config["group_config"], global_space)
+        self._make_groups_and_teachers(self.default_timeslots["timeslots"], slot_blocked_id)
     
     def step(self):
         self.agents.shuffle_do("step")
@@ -441,6 +575,13 @@ class ScheduleModel(Model):
                 states.append(agent.state)
         return states
     
+    def schedule_ready(self, states=None):
+        teacher_states = self.get_teacher_states()
+        for state in teacher_states:
+            if not (state ==  TeacherState.WORK_ENDED):
+                return False
+        return True
+
     def log_message(self, log_part: str):
         self.message_log.append(log_part)
 

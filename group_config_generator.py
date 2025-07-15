@@ -21,6 +21,7 @@ class Class:
     def __init__(self, name: str, class_type: str, min_class_times: int, max_class_times: int):
         self.name = name
         self.class_type = class_type
+        self.class_tools = []
         self.times = ()
         self.__make_times(random.randint(min_class_times, max_class_times))
     
@@ -29,21 +30,66 @@ class Class:
         second_time = max_times - first_time
         self.times = (first_time, second_time)
     
+    def set_tools(self, tool_list: list):
+        self.class_tools = tool_list
+
     def get_name(self):
         return self.name
     
-    def get_class_type(self):
+    def get_type(self):
         return self.class_type
     
     def get_times(self):
         return self.times
 
-    @staticmethod
-    def make_class_set(name: str, types: list, min_class_times, max_class_times):
+    def get_tools(self):
+        return self.class_tools
+
+class ClassMaker:
+    def _choose_tools(self) -> list:
+        choice_num = random.randint(1, 100)
+
+        if choice_num <= 50:
+            return [random.choice(self.possible_tools)]
+
+        elif choice_num > 50 and choice_num <= 90:
+            return []
+
+        elif choice_num > 90:
+            tool_set = set()
+            tool_remaining = self.max_tool_count
+
+            while tool_remaining > 0:
+                tool_set.add(random.choice(self.possible_tools))
+                tool_remaining -= 1
+
+            return list(tool_set)
+
+    def __init__(self, class_type_list: list, tool_list: list, max_tool_count: int):
+        self.class_tools = {}
+        self.types = class_type_list
+        self.possible_tools = tool_list
+        self.max_tool_count = max_tool_count
+
+    def make_class_set(self, name: str, min_class_times, max_class_times):
         class_set = []
-        for type in types:
-            class_set.append(Class(name + ", " + type, type, min_class_times, max_class_times))
+        for type in self.types:
+            new_class = Class(name + ", " + type, type, min_class_times, max_class_times)
+            class_set.append(new_class)
+
+            if new_class.get_name() in self.class_tools:
+                new_class.set_tools(self.class_tools[new_class.get_name()])
+            else:
+                if new_class.get_type() == "лек.":
+                    self.class_tools[new_class.get_name()] = random.choice([["Проектор"], []])
+                else:
+                    self.class_tools[new_class.get_name()] = self._choose_tools()
+                new_class.set_tools(self.class_tools[new_class.get_name()])
+
         return class_set
+
+    def get_class_tools(self):
+        return self.class_tools
 
 class Teacher:
     def __init__(self, name: str, class_count: int, class_list: list):
@@ -80,19 +126,22 @@ def generate_classes(group_names, class_count, generator_config):
     #class_name_list = generator_config["classes"]
     teacher_name_list = generator_config["teachers"]
     class_type_list = generator_config["class_types"]
+    tool_list = generator_config["tools"]
+    max_tool_count = generator_config["max_tool_count"]
     min_class_times = generator_config["min_class_times"]
     max_class_times = generator_config["max_class_times"]
     
+    class_maker = ClassMaker(class_type_list, tool_list, max_tool_count)
     group_dict = {}
     for group_name in group_names:
         class_name_list = copy.deepcopy(generator_config["classes"])
         for i in range(class_count):
-            print(len(class_name_list) - 1)
+            #print(len(class_name_list) - 1)
             choosen_class_index = random.randint(0, len(class_name_list) - 1)
             choosen_class_name = class_name_list[choosen_class_index]
             class_name_list.pop(choosen_class_index)
 
-            class_set = Class.make_class_set(choosen_class_name, class_type_list, min_class_times, max_class_times)
+            class_set = class_maker.make_class_set(choosen_class_name, min_class_times, max_class_times)
             for _class in class_set:
                 if group_name not in group_dict:
                     group_dict[group_name] = {}
@@ -100,17 +149,19 @@ def generate_classes(group_names, class_count, generator_config):
                 if _class.get_name() not in group_dict[group_name]:
                     group_dict[group_name][_class.get_name()] = {}
 
-                group_dict[group_name][_class.get_name()]["class_type"] = _class.get_class_type()
+                group_dict[group_name][_class.get_name()]["class_type"] = _class.get_type()
                 group_dict[group_name][_class.get_name()]["times"] = _class.get_times()
                 group_dict[group_name][_class.get_name()]["teacher"] = random.choice(teacher_name_list)
+                group_dict[group_name][_class.get_name()]["tools"] = _class.get_tools()
 
+    print(class_maker.get_class_tools())
     return group_dict
 
 def generate():
     generator_config = load_config(generator_config_path)
     group_list = []
 
-    for i in range(4):
+    for i in range(3):
         group_list.append(generator_config["groups"][i])
 
     group_dict = generate_classes(group_list, 7, generator_config)

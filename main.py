@@ -79,6 +79,7 @@ def main():
 
     main_config = load_config(main_config_path)
     group_config = load_config(group_config_path)
+    room_config = load_config(room_config_path)
 
     week_day_count = len(main_config["week_days"])
     week_parity = len(main_config["week_parity"])
@@ -88,7 +89,8 @@ def main():
         "timeslots": make_timeslots(period_size, main_config["class_max_count"])
     }
 
-    schedule_model = ScheduleModel(empty_timeslots, week_parity, group_config, global_space)
+    model_config = {"group_config": group_config, "room_config": room_config}
+    schedule_model = ScheduleModel(empty_timeslots, week_parity, model_config, global_space)
     
     flask_thread = threading.Thread(target=run_flask_app)
     flask_thread.start()

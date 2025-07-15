@@ -36,11 +36,11 @@
     ],
     "class_types": ["лек.", "лаб."],
     "tools": [
-        "Нет",
         "Проектор",
         "Компьютеры"
     ],
 
+    "max_tool_count": 2,
     "lecture_room_count": 4,
     "lab_room_count": 5
 }

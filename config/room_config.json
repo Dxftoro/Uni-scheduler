@@ -25,7 +25,7 @@
     },
     "105a": {
         "supported_class_types": ["лек."],
-        "tools": "Проектор"
+        "tools": ["Проектор"]
     },
     "105b": {
         "supported_class_types": ["лаб."],
