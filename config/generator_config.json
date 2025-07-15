@@ -1,6 +1,10 @@
 {
     "min_class_times": 2,
     "max_class_times": 4,
+    "max_tool_count": 2,
+    "lecture_room_count": 4,
+    "lab_room_count": 5,
+
     "groups": [
         "101/1", "101/2", "102/1", "102/2", "103/1", "103/2"
     ],
@@ -38,9 +42,5 @@
     "tools": [
         "Проектор",
         "Компьютеры"
-    ],
-
-    "max_tool_count": 2,
-    "lecture_room_count": 4,
-    "lab_room_count": 5
+    ]
 }

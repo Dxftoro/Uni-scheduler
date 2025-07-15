@@ -118,7 +118,7 @@ class ClassInfo:
     def __init__(self, class_name: str, class_info: dict, group_id: int, global_space: Space):
         self.id = global_space.match(class_name)
         self.group_id = group_id
-        self.type = global_space.match(class_info["type"])
+        self.type_id = global_space.match(class_info["class_type"])
         self.times = ()
 
         class_tools = []
@@ -127,9 +127,19 @@ class ClassInfo:
             class_tools.append(tool_id)
         self.tools = tuple(class_tools)
     
-    def set_times(self, class_times: tuple):
-        self.class_times = class_times
-
+    def to_string(self) -> str:
+        return f"class_id: {self.id} times: {self.times}" #group_id: {self.group_id}, type_id: {self.type}, times: {self.times}, tools: {self.tools}"
+    
+    def __str__(self) -> str:
+        return self.to_string()
+    
+    def __repr__(self) -> str:
+        return self.to_string()
+    
+    def __format__(self, __format_spec: str) -> str:
+        if __format_spec: pass
+        return self.to_string()
+    
 class TeacherAgent(SendingAgent):
     def _next_class(self, mark_previous_as):
         self.owned_classes[self.viewing_class]["solution"] = mark_previous_as
@@ -172,12 +182,15 @@ class TeacherAgent(SendingAgent):
         self.groups_subjprefs = []
         self.current_subjpref_index = 0
 
+        #print(f"-------------------- Setting teacher [{self.get_id()}]")
         for owned_class in owned_classes:
+            #print(f"---------- Owned class [{owned_class.id}] with times {owned_class.times}")
             for _ in range(owned_class.times[1]):
+                #print(f"----- append")
                 self.owned_classes.append({
                     "id": owned_class.id,
                     "group_id": owned_class.group_id,
-                    "type_id": owned_class.type,
+                    "type_id": owned_class.type_id,
                     "week": owned_class.times[0],
                     "tools": owned_class.tools,
                     "solution": SolutionType.UNDEFINED
@@ -190,6 +203,7 @@ class TeacherAgent(SendingAgent):
     def step(self):
         if self.state == TeacherState.ASK_WHEN_AVAIL:
             empty_intersection = True
+            print("-----------------------------", self.viewing_class)
             week = self.owned_classes[self.viewing_class]["week"]
             group_id = self.owned_classes[self.viewing_class]["group_id"]
 
@@ -224,9 +238,9 @@ class TeacherAgent(SendingAgent):
             request.set_sender(self.get_id())
             self.send_message(request, group_id)
 
-#               на этом этапе предпочтение - это свободный таймслот у группы
-#               получаемое предпочтение: (id дня учебного ПЕРИОДА, номер пары)
-#               получаем список предпочтений
+#           на этом этапе предпочтение - это свободный таймслот у группы
+#           получаемое предпочтение: (id дня учебного ПЕРИОДА, номер пары)
+#           получаем список предпочтений
 
             response = self.pop_last_message()
             if response.get_type() == MessageType.SUBJPREFS:
@@ -260,7 +274,7 @@ class TeacherAgent(SendingAgent):
 
             response = self.pop_last_message()
             if response.get_type() == MessageType.ACCEPT:
-                self.timeslots[subjpref[0]][subjpref[1]] = (self.owned_classes[self.viewing_class]["id"], None)
+                self.timeslots[subjpref[0]][subjpref[1]] = [self.owned_classes[self.viewing_class]["id"], None]
                 self.state = TeacherState.PROPOSE_LOCATION
                 return
             elif response.get_type() == MessageType.REJECT:
@@ -275,6 +289,7 @@ class TeacherAgent(SendingAgent):
             self._next_class(SolutionType.SOLUTION_NOT_FOUND)
         
         elif self.state == TeacherState.PROPOSE_LOCATION:
+            group_id = self.owned_classes[self.viewing_class]["group_id"]
             subjpref = self.groups_subjprefs[self.current_subjpref_index]
             locproposal = (self.owned_classes[self.viewing_class], subjpref[0], subjpref[1])
 
@@ -355,7 +370,7 @@ class GroupAgent(SendingAgent):
 
             if self.timeslots[day_i][slot_i] is None:
                 #self.planned_meetings[message.get_sender()] = (day_i, slot_i, None)
-                self.timeslots[day_i][slot_i] = (class_id, message.get_sender(), None)
+                self.timeslots[day_i][slot_i] = [class_id, message.get_sender(), None]
                 response = Message(MessageType.ACCEPT, None)
                 response.set_sender(self.get_id())
                 response.set_receiver(message.get_sender())
@@ -370,8 +385,8 @@ class GroupAgent(SendingAgent):
             slot_i = message.get_content()[1]
             room_id = message.get_content()[2]
 
-            if not isinstance(self.timeslots[day_i][slot_i], tuple):
-                raise Exception(f"Agent [{message.get_sender()}] tried to set meeting on unsuitable timeslot!")
+            if not isinstance(self.timeslots[day_i][slot_i], list):
+                raise Exception(f"Agent [{message.get_sender()}] tried to set meeting on unsuitable timeslot [{day_i}][{slot_i}] of group {self.get_id()}!")
             
             self.timeslots[day_i][slot_i][2] = room_id
         
@@ -379,8 +394,8 @@ class GroupAgent(SendingAgent):
             day_i = message.get_content()[0]
             slot_i = message.get_content()[1]
 
-            if not isinstance(self.timeslots[day_i][slot_i], tuple):
-                raise Exception(f"Agent [{message.get_sender()}] tried to cancel meeting on unsuitable timeslot!")
+            if not isinstance(self.timeslots[day_i][slot_i], list):
+                raise Exception(f"Agent [{message.get_sender()}] tried to cancel meeting on unsuitable timeslot [{day_i}][{slot_i}]!")
             
             self.timeslots[day_i][slot_i] = None
         
@@ -411,8 +426,8 @@ class RoomInfo:
     def avaible_for(self, locproposal) -> bool:
         class_info = locproposal[0]
 
-        if not (class_info["type"] in self.supported_class_types): return False
-        if not all(tool in self.tools for tool in class_info["tools"]): return False
+        if not (class_info["type_id"] in self.supported_class_types): return False
+        if not len(class_info["tools"]) == 0 and not all(tool in self.tools for tool in class_info["tools"]): return False
         if not (self.timeslots[locproposal[1]][locproposal[2]] is None): return False
 
         return True
@@ -444,6 +459,12 @@ class RoomAgent(SendingAgent):
             self.send_message(response, message.get_sender())
         else:
             Exception(f"LOCPROPOSAL expected. Got {message.get_type()}")
+    
+    def get_room_timeslots(self) -> dict:
+        room_timeslots = {}
+        for room in self.owned_rooms:
+            room_timeslots[room.id] = room.timeslots
+        return room_timeslots
 
 class ScheduleModel(Model):
     def _make_ids(self, group_config: dict, global_space: Space) -> int:
@@ -463,19 +484,22 @@ class ScheduleModel(Model):
                 self.class_ids.append(_class.id)
 
                 teacher_id = global_space.match(class_info["teacher"])
+                self.log_message(f"{class_name} [{_class.id}] owned by {class_info['teacher']} [{teacher_id}]")
                 if not (teacher_id in self.teacher_ids):
                     self.teacher_ids[teacher_id] = {}
                 
                 for i, time in enumerate(class_info["times"]):
-                    _class.class_times = (i, time)
+                    _class_copy = copy.deepcopy(_class)
+                    _class_copy.times = (i, time)
+                    print("going to add class with times", _class_copy.times)
 #                   owned_class: tuple (id, group id, appearance, tools)
 #                   appearance: tuple (week number, count of class repeats (it's called "time"))
 #                   tools: tuple (tool1, tool2, ..., tooln)
 
                     if "owned_classes" in self.teacher_ids[teacher_id]:
-                        self.teacher_ids[teacher_id]["owned_classes"].add(_class)
+                        self.teacher_ids[teacher_id]["owned_classes"].add(_class_copy)
                     else:
-                        self.teacher_ids[teacher_id]["owned_classes"] = {_class}
+                        self.teacher_ids[teacher_id]["owned_classes"] = {_class_copy}
 
                 if "owned_groups" in self.teacher_ids[teacher_id]:
                     self.teacher_ids[teacher_id]["owned_groups"].add(group_id)
@@ -575,6 +599,12 @@ class ScheduleModel(Model):
                 states.append(agent.state)
         return states
     
+    def get_room_timeslots(self) -> dict:
+        for agent in self.sending_agents:
+            if isinstance(agent, RoomAgent):
+                room_timeslots = agent.get_room_timeslots()
+                return room_timeslots
+
     def schedule_ready(self, states=None):
         teacher_states = self.get_teacher_states()
         for state in teacher_states:
@@ -590,12 +620,3 @@ class ScheduleModel(Model):
 
     def get_parity_rank(self):
         return self.parity_rank
-
-    def check_group_teacher_collisions(self):
-        day_count = len(self.default_timeslots)
-        slot_count = len(self.default_timeslots[0])
-        
-        for day_i in range(day_count):
-            for slot_i in range(slot_count):
-                for agent in self.sending_agents:
-                    if not isinstance(agent, GroupAgent): continue

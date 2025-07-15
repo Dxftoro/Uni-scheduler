@@ -37,11 +37,13 @@ def render_schedules():
         schedule_model.step()
 
     timeslots = schedule_model.get_group_timeslots()
+    room_timeslots = schedule_model.get_room_timeslots()
     states = schedule_model.get_teacher_states()
     message_log = schedule_model.get_message_log()
 
     return render_template("index.html", 
-        timeslots=timeslots, 
+        timeslots=timeslots,
+        room_timeslots=room_timeslots,
         states=states, 
         message_log=message_log,
         message_log_len=len(message_log))

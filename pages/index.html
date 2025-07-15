@@ -11,12 +11,34 @@
 
 <body>
 	<div class="container mt-3 col-md-10 text-center" id="table-wrapper">
+        <div class="col-auto text-center">
+            <div class="row">
+                <form action="" method="post">
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-light">Следующий шаг</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="row">
             {% for group_id, slots in timeslots.items() %}
             <div col="col-3">
                 <ul class="list-group text-left">
                     <li class="list-group-item py-1"><strong>Группа {{ group_id }}:</strong></li>
                         {% for row in slots %}
+                            <li class="list-group-item py-0">{{ row }}</li>
+                        {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="row overflow-x-auto">
+            {% for room_id, timeslots in room_timeslots.items() %}
+            <div col="col-3">
+                <ul class="list-group text-left">
+                    <li class="list-group-item py-1"><strong>Аудитория {{ room_id }}:</strong></li>
+                        {% for row in timeslots %}
                             <li class="list-group-item py-0">{{ row }}</li>
                         {% endfor %}
                 </ul>
@@ -39,15 +61,6 @@
                     <li>{{ message }}</li>
                 {% endfor %}
                 </ul>
-            </div>
-            <div class="col-auto text-center">
-                <div class="row">
-                    <form action="" method="post">
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-light">Следующий шаг</button>
-                        </div>
-                    </form>
-                </div>
             </div>
         </div>
 	</div>
