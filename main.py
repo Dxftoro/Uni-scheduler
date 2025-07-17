@@ -1,51 +1,22 @@
 import json
 import os
 import sys
-import time
-import threading
+from datetime import datetime
 from schedudle_model import ScheduleModel, TeacherState
-from entity_system import Space, IdDecoder
-from flask import Flask, render_template, request
+from entity_system import Space
+from schedule_decoder import ScheduleDecoder
+from flask import Flask
+import flask_routes
 
 main_config_path = "main_config.json"
 group_config_path = "group_config.json"
 room_config_path = "room_config.json"
 script_dir = os.path.dirname(sys.argv[0])
 config_dir = os.path.join(script_dir, "config")
+output_dir = os.path.join(script_dir, "output")
 
 schedule_model = None
 global_space = Space()
-input_key = ""
-
-app = Flask(__name__, template_folder="./pages")
-def run_flask_app():
-    app.run(use_reloader=False, debug=True, host="0.0.0.0", port=5000)
-
-@app.route("/", methods=["post", "get"])
-def render_schedules():
-    global schedule_model
-
-    #if request.method == "POST":
-    #    print("-----------------> STEP <-----------------")
-    #    schedule_model.step()
-
-    timeslots = schedule_model.get_group_timeslots()
-    room_timeslots = schedule_model.get_room_timeslots()
-    states = schedule_model.get_teacher_states()
-    message_log = schedule_model.get_message_log()
-
-    return render_template("index.html", 
-        timeslots=timeslots,
-        room_timeslots=room_timeslots,
-        states=states, 
-        message_log=message_log,
-        message_log_len=len(message_log))
-
-@app.route("/space")
-def render_global_space():
-    entities = global_space.get_entities()
-    entity_list_len = len(entities)
-    return render_template("space.html", entities=entities, entity_list_len=entity_list_len)
 
 def load_config(config_path: str) -> dict:
     input_dict = {}
@@ -55,31 +26,6 @@ def load_config(config_path: str) -> dict:
     
     return input_dict
 
-class ScheduleDecoder(IdDecoder):
-    def __init__(self, main_config, global_space: Space, timeslots):
-        self.main_config = main_config
-        self.global_space = global_space
-        self.timeslots = timeslots
-    
-    def decode(self):
-        result = []
-        for group_id, group_timeslots in self.timeslots:
-            group_timetable = {}
-            group_timetable["group_name"] = self.global_space.get(group_id)
-
-            for day_i in range(len(group_timeslots)):
-                day_name = self.main_config["week_days"][day_i]
-                group_timetable[day_name] = {}
-
-                for slot_i in range(len(group_timeslots[day_i])):
-                    slot_name = self.main_config["class_times"][slot_i]
-                    class_name = global_space.get(group_timeslots[day_i][slot_i][0])
-                    teacher_name = global_space.get(group_timeslots[day_i][slot_i][1])
-                    room_name = global_space.get(group_timeslots[day_i][slot_i][2])
-                    group_timetable[day_name][slot_name] = [class_name, teacher_name, room_name]
-            result.append(group_timetable)
-        return result
-
 def make_timeslots(day_count, class_count):
     timeslots = []
     for i in range(day_count):
@@ -87,10 +33,15 @@ def make_timeslots(day_count, class_count):
         timeslots.append(day)
     return timeslots
 
+def save_timetable(output_dir: str, timetable):
+    current_time = datetime.now().strftime("%d-%m-%Y_%H%M%S-%f")
+
+    with open(os.path.join(output_dir, f"timetable_{current_time}.json"), "w", encoding = "utf-8") as timetable_file:
+        json.dump(timetable, timetable_file, indent=4, ensure_ascii=False)
+
 def main():
     global schedule_model
     global global_space
-    global input_key
 
     main_config = load_config(main_config_path)
     group_config = load_config(group_config_path)
@@ -113,7 +64,14 @@ def main():
         iterations += 1
     print("Iteration count:", iterations)
     
-    run_flask_app()
+    decoder = ScheduleDecoder(main_config, global_space, schedule_model.get_group_timeslots())
+    timetables = decoder.decode()
+    #save_timetable(output_dir, timetable)
+
+    flask_routes.global_space = global_space
+    flask_routes.schedule_model = schedule_model
+    flask_routes.timetables = timetables
+    flask_routes.run_flask_app()
 
 if __name__ == "__main__":
     main()

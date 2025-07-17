@@ -230,7 +230,7 @@ class TeacherAgent(SendingAgent):
                 self.state = TeacherState.ASK_SUBJ_PREFS
 
         elif self.state == TeacherState.IMPOSS_MEETING:
-            print(f"Teacher {self.get_id()} didn't find free timeslot for this class!")
+            #print(f"Teacher {self.get_id()} didn't find free timeslot for this class!")
             self._next_class(SolutionType.SOLUTION_NOT_FOUND)
 
         elif self.state == TeacherState.ASK_SUBJ_PREFS:

@@ -24,15 +24,24 @@
         "tools": ["Компьютеры"]
     },
     "105a": {
-        "supported_class_types": ["лек."],
-        "tools": ["Проектор"]
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
     },
     "105b": {
         "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "106a": {
+        "supported_class_types": ["лек."],
+        "tools": ["Проектор"]
+    },
+    "106b": {
+        "supported_class_types": ["лаб."],
         "tools": ["Нет"]
     },
-    "106": {
+    "107": {
         "supported_class_types": ["лаб."],
         "tools": ["Нет"]
     }
+
 }
