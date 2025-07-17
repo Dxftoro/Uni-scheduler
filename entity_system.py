@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 class Space:
     def _exists(self, data):
         for index, entity_data in enumerate(self.entities):
@@ -26,3 +28,10 @@ class Space:
     
     def get_entities(self):
         return self.entities
+
+class IdDecoder:
+    def __init__(self, space: Space):
+        self.space = space
+    
+    @abstractmethod
+    def decode(self, custom_data): pass

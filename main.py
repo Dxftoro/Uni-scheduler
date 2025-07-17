@@ -3,8 +3,8 @@ import os
 import sys
 import time
 import threading
-from schedudle_model import ScheduleModel
-from entity_system import Space
+from schedudle_model import ScheduleModel, TeacherState
+from entity_system import Space, IdDecoder
 from flask import Flask, render_template, request
 
 main_config_path = "main_config.json"
@@ -21,20 +21,13 @@ app = Flask(__name__, template_folder="./pages")
 def run_flask_app():
     app.run(use_reloader=False, debug=True, host="0.0.0.0", port=5000)
 
-def shutdown_server():
-    # This function is specific to the Werkzeug development server
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        raise RuntimeError('Not running with the Werkzeug Server')
-    func()
-
 @app.route("/", methods=["post", "get"])
 def render_schedules():
     global schedule_model
 
-    if request.method == "POST":
-        print("-----------------> STEP <-----------------")
-        schedule_model.step()
+    #if request.method == "POST":
+    #    print("-----------------> STEP <-----------------")
+    #    schedule_model.step()
 
     timeslots = schedule_model.get_group_timeslots()
     room_timeslots = schedule_model.get_room_timeslots()
@@ -54,11 +47,6 @@ def render_global_space():
     entity_list_len = len(entities)
     return render_template("space.html", entities=entities, entity_list_len=entity_list_len)
 
-@app.route("/shutdown")
-def stop_app():
-    shutdown_server()
-    return "Server is about to shutdown!"
-
 def load_config(config_path: str) -> dict:
     input_dict = {}
     
@@ -66,6 +54,31 @@ def load_config(config_path: str) -> dict:
         input_dict = json.load(input_file)
     
     return input_dict
+
+class ScheduleDecoder(IdDecoder):
+    def __init__(self, main_config, global_space: Space, timeslots):
+        self.main_config = main_config
+        self.global_space = global_space
+        self.timeslots = timeslots
+    
+    def decode(self):
+        result = []
+        for group_id, group_timeslots in self.timeslots:
+            group_timetable = {}
+            group_timetable["group_name"] = self.global_space.get(group_id)
+
+            for day_i in range(len(group_timeslots)):
+                day_name = self.main_config["week_days"][day_i]
+                group_timetable[day_name] = {}
+
+                for slot_i in range(len(group_timeslots[day_i])):
+                    slot_name = self.main_config["class_times"][slot_i]
+                    class_name = global_space.get(group_timeslots[day_i][slot_i][0])
+                    teacher_name = global_space.get(group_timeslots[day_i][slot_i][1])
+                    room_name = global_space.get(group_timeslots[day_i][slot_i][2])
+                    group_timetable[day_name][slot_name] = [class_name, teacher_name, room_name]
+            result.append(group_timetable)
+        return result
 
 def make_timeslots(day_count, class_count):
     timeslots = []
@@ -93,19 +106,14 @@ def main():
 
     model_config = {"group_config": group_config, "room_config": room_config}
     schedule_model = ScheduleModel(empty_timeslots, week_parity, model_config, global_space)
-    
-    flask_thread = threading.Thread(target=run_flask_app)
-    flask_thread.start()
 
-    try:
-        while input_key != "e":
-            input_key = str(input("-----------------> STEP <-----------------"))
-            schedule_model.step()
-            #time.sleep(0.25)
-    except Exception as exc:
-        print(exc)
-        #shutdown_server()
-    flask_thread.join()
+    iterations = 0
+    while not schedule_model.schedule_ready():
+        schedule_model.step()
+        iterations += 1
+    print("Iteration count:", iterations)
+    
+    run_flask_app()
 
 if __name__ == "__main__":
     main()

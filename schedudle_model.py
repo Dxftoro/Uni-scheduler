@@ -4,7 +4,7 @@ import mesa
 from mesa import Agent, Model
 from enum import Enum
 from abc import abstractmethod
-from entity_system import Space
+from entity_system import Space, IdDecoder
 
 def get_intersection(dict1: dict, dict2: dict) -> set:
     intersection = {}
@@ -33,7 +33,10 @@ class MessageType(Enum):
     REJECT = 6,
     LOCPROPOSAL = 7,
     FIXMEETING = 8,
-    CANCEL_MEETING = 9
+    CANCEL_MEETING = 9,
+    WHEREGAPS = 10,
+    USERGAPS = 11,
+    SET_STATE = 12
 
 class TeacherState(Enum):
     ASK_WHEN_AVAIL = 0,
@@ -43,9 +46,15 @@ class TeacherState(Enum):
     SOLNOT_FOUND = 4,
     PROPOSE_LOCATION = 5,
     FIX_MEETING = 6,
+    BREAK = 7,
+    TALK_TO_DEANERY = 8,
+    WORK_ENDED = 9
 
-    WAIT_FOR_AVAIL = 7
-    WORK_ENDED = 8
+class DeaneryState(Enum):
+    ASK_GAPS = 0,
+    FIND_FREE_TEACHERS = 1,
+
+    WORK_ENDED = 10
 
 class SolutionType(Enum):
     SOLUTION_NOT_FOUND = 0,
@@ -95,9 +104,8 @@ class SendingAgent(Agent):
         else:
             for agent in self.model.sending_agents:
                 if agent.get_id() == receiver_id:
-                    log_part = f"{type(self)}[{self.get_id()}] sent to {type(agent)}[{agent.get_id()}] a message of type {message.get_type()}"
+                    log_part = f"{type(self).__name__}[{self.get_id()}] -> {type(agent).__name__}[{agent.get_id()}] : {message.get_type().name}"
                     self.model.log_message(log_part)
-                    print(log_part)
                     agent.receive_message(message)
                     break
     
@@ -112,7 +120,8 @@ class SendingAgent(Agent):
         return self.message_box[-1]
     
     def pop_last_message(self) -> Message:
-        return self.message_box.pop()
+        if not len(self.message_box): return None
+        else: return self.message_box.pop()
 
 class ClassInfo:
     def __init__(self, class_name: str, class_info: dict, group_id: int, global_space: Space):
@@ -160,7 +169,6 @@ class TeacherAgent(SendingAgent):
         for day_i, day in enumerate(self.timeslots):
             for slot_i, slot in enumerate(day):
                 if week == week_num(day_i, parity_rank, len(self.timeslots)) and slot == class_id and timeslots2[day_i][slot_i] == class_id:
-                    #print(f"Found intersection in [{day_i}][{slot_i}]")
                     return True
         return False
 
@@ -182,11 +190,8 @@ class TeacherAgent(SendingAgent):
         self.groups_subjprefs = []
         self.current_subjpref_index = 0
 
-        #print(f"-------------------- Setting teacher [{self.get_id()}]")
         for owned_class in owned_classes:
-            #print(f"---------- Owned class [{owned_class.id}] with times {owned_class.times}")
             for _ in range(owned_class.times[1]):
-                #print(f"----- append")
                 self.owned_classes.append({
                     "id": owned_class.id,
                     "group_id": owned_class.group_id,
@@ -196,14 +201,14 @@ class TeacherAgent(SendingAgent):
                     "solution": SolutionType.UNDEFINED
                 })
     
-    def on_receive(self):
-        message = self.get_last_message()
-        print("Teacher received a message of type ", message.get_type())
+    def on_receive(self): pass
+        #message = self.get_last_message()
+        #print("Teacher received a message of type ", message.get_type())
 
     def step(self):
         if self.state == TeacherState.ASK_WHEN_AVAIL:
             empty_intersection = True
-            print("-----------------------------", self.viewing_class)
+            #print("-----------------------------", self.viewing_class)
             week = self.owned_classes[self.viewing_class]["week"]
             group_id = self.owned_classes[self.viewing_class]["group_id"]
 
@@ -402,8 +407,7 @@ class GroupAgent(SendingAgent):
         elif message.get_type() == MessageType.FIXMEETING:
             print("Meeting fixed")
     
-    def step(self):
-        print(f"Group {self.get_id()} stepped!")
+    def step(self): pass
     
     def get_timeslots(self):
         return self.timeslots
@@ -441,6 +445,8 @@ class RoomAgent(SendingAgent):
             room_id = global_space.match(room_name)
             self.owned_rooms.append(RoomInfo(room_id, room_info, copy.deepcopy(timeslots), global_space))
     
+    def step(self): pass
+
     def on_receive(self):
         message = self.get_last_message()
 
@@ -457,14 +463,67 @@ class RoomAgent(SendingAgent):
                     return
             response = Message(MessageType.REJECT, None, self.get_id(), message.get_sender())
             self.send_message(response, message.get_sender())
-        else:
-            Exception(f"LOCPROPOSAL expected. Got {message.get_type()}")
     
     def get_room_timeslots(self) -> dict:
         room_timeslots = {}
         for room in self.owned_rooms:
             room_timeslots[room.id] = room.timeslots
         return room_timeslots
+
+class DeaneryAgent(SendingAgent):
+    def __init__(self, teacher_ids, group_ids):
+        self.teacher_ids = teacher_ids
+        self.group_ids = group_ids
+        self.completed_teachers_count = 0
+        self.group_gaps = {}
+        self.corrector_id = None
+        self.state = DeaneryState.ASK_GAPS
+    
+    def step(self):
+        if self.state == DeaneryState.WAIT_FOR_TEACHERS:
+            if self.completed_teachers_count != len(self.teacher_ids): return 
+            
+            no_gaps_found = True
+            for group_id in self.group_ids:
+                request = Message(MessageType.WHEREGAPS, None)
+                request.set_sender(self.get_id())
+                request.set_receiver(group_id)
+
+                response = self.pop_last_message()
+                if response.get_type() == MessageType.USERGAPS:
+                    self.group_gaps[response.get_sender()] = response.get_content()
+                    if len(response.get_content()): no_gaps_found = False
+                else:
+                    raise Exception(f"USERGAPS expected. Got {response.get_type()}")
+        
+            if no_gaps_found:
+                for teacher_id in self.teacher_ids:
+                    message = Message(
+                        MessageType.SET_STATE, 
+                        TeacherState.WORK_ENDED,
+                        self.get_id(), teacher_id)
+                    self.send_message(message, teacher_id)
+                self.state = DeaneryState.WORK_ENDED
+            else:
+                for teacher_id, in self.teacher_ids:
+                    message = Message(
+                        MessageType.SET_STATE, 
+                        TeacherState.TALK_TO_DEANERY,
+                        self.get_id(), teacher_id)
+                    self.send_message(message, teacher_id)
+                self.state = DeaneryState.FIND_FREE_TEACHERS
+        
+        elif self.state == DeaneryState.FIND_FREE_TEACHERS:
+            max_free_times = 0
+            for teacher_id in self.teacher_ids:
+                request = Message(MessageType.TIMEPROPOSAL, self.group_gaps, self.get_id(), teacher_id)
+                self.send_message(request, teacher_id)
+
+                response = self.pop_last_message()
+                if response.get_type() == MessageType.ACCEPT:
+                    pass
+
+    def on_receive(self): pass
 
 class ScheduleModel(Model):
     def _make_ids(self, group_config: dict, global_space: Space) -> int:
@@ -491,7 +550,7 @@ class ScheduleModel(Model):
                 for i, time in enumerate(class_info["times"]):
                     _class_copy = copy.deepcopy(_class)
                     _class_copy.times = (i, time)
-                    print("going to add class with times", _class_copy.times)
+
 #                   owned_class: tuple (id, group id, appearance, tools)
 #                   appearance: tuple (week number, count of class repeats (it's called "time"))
 #                   tools: tuple (tool1, tool2, ..., tooln)
@@ -605,12 +664,15 @@ class ScheduleModel(Model):
                 room_timeslots = agent.get_room_timeslots()
                 return room_timeslots
 
-    def schedule_ready(self, states=None):
+    def schedule_in_state(self, state) -> bool:
         teacher_states = self.get_teacher_states()
-        for state in teacher_states:
-            if not (state ==  TeacherState.WORK_ENDED):
+        for teacher_state in teacher_states:
+            if not (teacher_state == state):
                 return False
         return True
+
+    def schedule_ready(self) -> bool:
+        return self.schedule_in_state(TeacherState.WORK_ENDED)
 
     def log_message(self, log_part: str):
         self.message_log.append(log_part)
