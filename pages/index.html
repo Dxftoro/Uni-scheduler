@@ -11,6 +11,20 @@
 
 <body>
 	<div class="container mt-3 col-md-10 text-center" id="main-wrapper">
+        <div class="row mt-3 mb-3" id="switch-buttons-wrapper">        
+            <div class="col-6">
+                {% if page_index > 0 %}
+                    <a href=".?page={{ page_index - 1 }}" class="btn btn-light">Предыдущее расписание</a>
+                {% endif %}
+            </div>
+            <div class="col-6">
+                {% if page_index < timetable_count - 1 %}
+                    <a href=".?page={{ page_index + 1 }}" class="btn btn-light">Следующее расписание</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <hr>
         <div class="row justify-content-center" id="timetable-title">
             <h1><strong>Расписание группы {{ timetable["group_name"] }}</strong></h1>
         </div>

@@ -33,14 +33,19 @@ def render_global_space():
 @app.route("/", methods=["get"])
 def render_index():
     global timetables
+    timetable_count = len(timetables)
 
     page_index = request.args.get("page")
     if page_index is None: page_index = 0
     else:
         try: page_index = int(page_index)
-        except: return "Wrong page index!"
+        except: page_index = 0
 
-    if page_index < 0 or page_index >= len(timetables):
-        return "Page index out of bounds!"
+    if page_index < 0 or page_index >= timetable_count:
+        page_index = 0
 
-    return render_template("index.html", timetable=timetables[page_index], page_index=page_index)
+    return render_template(
+        "index.html", 
+        timetable=timetables[page_index], 
+        page_index=page_index,
+        timetable_count=timetable_count)
