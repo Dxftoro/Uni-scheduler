@@ -66,7 +66,7 @@ def main():
     
     decoder = ScheduleDecoder(main_config, global_space, schedule_model.get_group_timeslots())
     timetables = decoder.decode()
-    #save_timetable(output_dir, timetable)
+    save_timetable(output_dir, timetables)
 
     flask_routes.global_space = global_space
     flask_routes.schedule_model = schedule_model

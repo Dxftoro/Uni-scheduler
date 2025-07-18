@@ -14,27 +14,37 @@
         <div class="row justify-content-center" id="timetable-title">
             <h1><strong>Расписание группы {{ timetable["group_name"] }}</strong></h1>
         </div>
+        <hr>
 
         <div class="row" id="timetable-body">
             {% for week_name, week_info in timetable.items() %}
+                {% if not (week_info is string) %}
                 <div class="col">
                     <h2>{{ week_name }}</h2>
-
-                    <tbody>
                     {% for day_name, day_info in week_info.items() %}
-                        <tr>{{ day_name }}</tr>
-                        <tr>
+                    <table class="table">
+                        <tbody>
+                            {% set slot_count = day_info.items() | length %}
                             {% for slot_name, slot_info in day_info.items() %}
-                                <td>{{ slot_name }}</td>
-                                <td>
-                                    {%  %}
-                                    {% endif %}
-                                </td>
+                            <tr>
+                            {% if loop.first %}
+                                <td rowspan="{{ slot_count }}" class="align-middle">{{ day_name }}</td>
+                            {% endif %}
+                            <td>{{ slot_name }}</td>
+                            <td>
+                            {% if slot_info is string %}
+                                {{ slot_info }}
+                                {% else %}
+                                {{ slot_info[0] }}, {{ slot_info[1] }}, ауд. {{ slot_info[2] }}
+                                {% endif %}
+                            </td>
+                            </tr>
                             {% endfor %}
-                        </tr>
-                    {% endfor %}
-                    </tbody>
+                        </tbody>
+                      </table>
+                      {% endfor %}
                 </div>
+                {% endif %}
             {% endfor %}
         </div>
 	</div>
