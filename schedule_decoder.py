@@ -19,7 +19,6 @@ class ScheduleDecoder(IdDecoder):
                 group_timetable[week_name] = {}
 
                 for day_i in range(week_i * day_per_week, (week_i * day_per_week) + day_per_week):
-                    print(f"range {week_i} * {day_per_week}, ({week_i} * {day_per_week}) + {day_per_week}, day_i = {day_i}")
                     #index = day_i - (day_per_week * week_i)
                     day_name = self.main_config["week_days"][day_i - (day_per_week * week_i)]
                     group_timetable[week_name][day_name] = {}
@@ -27,7 +26,6 @@ class ScheduleDecoder(IdDecoder):
                     for slot_i in range(len(group_timeslots[day_i])):
                         slot_name = self.main_config["class_times"][slot_i]
 
-#                        print(group_timeslots[day_i][slot_i])
                         if isinstance(group_timeslots[day_i][slot_i], list):
                             class_name = self.global_space.get(group_timeslots[day_i][slot_i][0])
                             teacher_name = self.global_space.get(group_timeslots[day_i][slot_i][1])

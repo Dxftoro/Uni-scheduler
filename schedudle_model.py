@@ -11,7 +11,6 @@ def get_intersection(dict1: dict, dict2: dict) -> set:
     for key, value in dict1.items():
         if key in dict2 and dict2[key] == value:
             intersection[key] = value
-            #print(f"Общие пары ключ-значение (вложенные циклы): {common_items}")
     return intersection
 
 def week_num(day: int, parity_rank: int, period_len: int):
@@ -156,7 +155,7 @@ class TeacherAgent(SendingAgent):
 
         if self.viewing_class >= len(self.owned_classes):
             self.state = TeacherState.WORK_ENDED
-            print(f"Teacher {self.get_id()} ended working!")
+#           print(f"Teacher {self.get_id()} ended working!")
         else:
             self.state = TeacherState.ASK_WHEN_AVAIL
         
@@ -208,7 +207,7 @@ class TeacherAgent(SendingAgent):
     def step(self):
         if self.state == TeacherState.ASK_WHEN_AVAIL:
             empty_intersection = True
-            #print("-----------------------------", self.viewing_class)
+
             week = self.owned_classes[self.viewing_class]["week"]
             group_id = self.owned_classes[self.viewing_class]["group_id"]
 
@@ -290,7 +289,7 @@ class TeacherAgent(SendingAgent):
             self.current_subjpref_index += 1
         
         elif self.state == TeacherState.SOLNOT_FOUND:
-            print(f"Teacher {self.get_id()} didn't find solution for this class!")
+#           print(f"Teacher {self.get_id()} didn't find solution for this class!")
             self._next_class(SolutionType.SOLUTION_NOT_FOUND)
         
         elif self.state == TeacherState.PROPOSE_LOCATION:
@@ -334,6 +333,15 @@ class TeacherAgent(SendingAgent):
                 #request = Message(MessageType.FIXMEETING, None, self.get_id(), group_id)
                 #self.send_message(request, group_id)
             self._next_class(SolutionType.SOLUTION_FOUND)
+
+    def count_owned_classes(self) -> int:
+        return len(self.owned_classes)
+
+    def count_solutions_of_type(self, solution_type) -> int:
+        count = 0
+        for owned_class in self.owned_classes:
+            if owned_class["solution"] == solution_type: count += 1
+        return count
 
 class GroupAgent(SendingAgent):
     def __init__(self, model, self_id, timeslots):
@@ -381,7 +389,7 @@ class GroupAgent(SendingAgent):
                 response.set_receiver(message.get_sender())
                 self.send_message(response, message.get_sender())
             else:
-                print(f"Timeslot [{day_i}][{slot_i}] is {self.timeslots[day_i][slot_i]}")
+#               print(f"Timeslot [{day_i}][{slot_i}] is {self.timeslots[day_i][slot_i]}")
                 response = Message(MessageType.REJECT, None, self.get_id(), message.get_sender())
                 self.send_message(response, message.get_sender())
 
@@ -405,7 +413,8 @@ class GroupAgent(SendingAgent):
             self.timeslots[day_i][slot_i] = None
         
         elif message.get_type() == MessageType.FIXMEETING:
-            print("Meeting fixed")
+#            print("Meeting fixed")
+            pass
     
     def step(self): pass
     
@@ -664,16 +673,6 @@ class ScheduleModel(Model):
                 room_timeslots = agent.get_room_timeslots()
                 return room_timeslots
 
-    def schedule_in_state(self, state) -> bool:
-        teacher_states = self.get_teacher_states()
-        for teacher_state in teacher_states:
-            if not (teacher_state == state):
-                return False
-        return True
-
-    def schedule_ready(self) -> bool:
-        return self.schedule_in_state(TeacherState.WORK_ENDED)
-
     def log_message(self, log_part: str):
         self.message_log.append(log_part)
 
@@ -682,3 +681,41 @@ class ScheduleModel(Model):
 
     def get_parity_rank(self):
         return self.parity_rank
+
+    def schedule_in_state(self, state) -> bool:
+        teacher_states = self.get_teacher_states()
+        for teacher_state in teacher_states:
+            if not (teacher_state == state):
+                return False
+        return True
+    
+    def schedule_ready(self) -> bool:
+        return self.schedule_in_state(TeacherState.WORK_ENDED)
+
+    def failed_count(self) -> int:
+        fail_count = 0
+        for agent in self.sending_agents:
+            if isinstance(agent, TeacherAgent):
+                fail_count += agent.count_solutions_of_type(SolutionType.SOLUTION_NOT_FOUND)
+        return fail_count
+    
+    def completed_count(self) -> int:
+        completion_count = 0
+        for agent in self.sending_agents:
+            if isinstance(agent, TeacherAgent):
+                completion_count += agent.count_solutions_of_type(SolutionType.SOLUTION_FOUND)
+        return completion_count
+
+    def undefined_count(self) -> int:
+        count = 0
+        for agent in self.sending_agents:
+            if isinstance(agent, TeacherAgent):
+                count += agent.count_solutions_of_type(SolutionType.UNDEFINED)
+        return count
+
+    def owned_class_count(self) -> int:
+        count = 0
+        for agent in self.sending_agents:
+            if isinstance(agent, TeacherAgent):
+                count += agent.count_owned_classes()
+        return count

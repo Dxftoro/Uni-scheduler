@@ -62,7 +62,17 @@ def main():
     while not schedule_model.schedule_ready():
         schedule_model.step()
         iterations += 1
-    print("Iteration count:", iterations)
+    
+    owned_class_count = schedule_model.owned_class_count()
+    failed_solution_count = schedule_model.failed_count()
+    completed_solution_count = schedule_model.completed_count()
+    completed_percent = f"{((completed_solution_count / owned_class_count) * 100):.2f}"
+    failed_percent = f"{((failed_solution_count / owned_class_count) * 100):.2f}"
+
+    print(f"Iteration count: {iterations}\n")
+    print(f"Owned class count: {owned_class_count}")
+    print(f"Completed solutions: {completed_percent}% ({completed_solution_count})")
+    print(f"Failed solutions: {failed_percent}% ({failed_solution_count})\n")
     
     decoder = ScheduleDecoder(main_config, global_space, schedule_model.get_group_timeslots())
     timetables = decoder.decode()

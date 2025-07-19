@@ -159,10 +159,11 @@ def generate_classes(group_names, class_count, generator_config):
 
 def generate():
     generator_config = load_config(generator_config_path)
-    group_list = generator_config["groups"]
+    #group_list = generator_config["groups"]
+    group_list = []
 
-    #for i in range(3):
-    #    group_list.append(generator_config["groups"][i])
+    for i in range(3):
+        group_list.append(generator_config["groups"][i])
 
     group_dict = generate_classes(group_list, 7, generator_config)
     with open(os.path.join(config_dir, "group_config.json"), "w", encoding = "utf-8") as group_config_file:

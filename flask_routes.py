@@ -6,7 +6,7 @@ timetables = None
 
 app = Flask(__name__, template_folder="./pages")
 def run_flask_app():
-    app.run(use_reloader=False, debug=True, host="0.0.0.0", port=5000)
+    app.run(use_reloader=False, debug=False, host="0.0.0.0", port=5000)
 
 @app.route("/debug", methods=["post", "get"])
 def render_debug_schedules():
