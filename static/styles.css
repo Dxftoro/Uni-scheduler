@@ -31,17 +31,17 @@ tr {
 
 .table {
 	color: white;
-	border: none !important
+	/*border: none !important*/
 }
 
-.table-no-outer-border {
+/*.table-no-outer-border {
     border: none !important;
 }
-.table-no-outer-border th,
+
 .table-no-outer-border td {
     border-top: none !important;
     border-bottom: none !important;
-}
+}*/
 
 .list-group-item {
 	background-color: #1f1f1f;

@@ -33,6 +33,23 @@ def make_timeslots(day_count, class_count):
         timeslots.append(day)
     return timeslots
 
+def build_schedule(schedule_model: ScheduleModel):
+    iterations = 0
+    while not schedule_model.schedule_ready():
+        schedule_model.step()
+        iterations += 1
+    
+    owned_class_count = schedule_model.owned_class_count()
+    failed_solution_count = schedule_model.failed_count()
+    completed_solution_count = schedule_model.completed_count()
+    completed_percent = f"{((completed_solution_count / owned_class_count) * 100):.2f}"
+    failed_percent = f"{((failed_solution_count / owned_class_count) * 100):.2f}"
+
+    print(f"Iteration count: {iterations}\n")
+    print(f"Owned class count: {owned_class_count}")
+    print(f"Completed solutions: {completed_percent}% ({completed_solution_count})")
+    print(f"Failed solutions: {failed_percent}% ({failed_solution_count})\n")
+
 def save_timetable(output_dir: str, timetable):
     current_time = datetime.now().strftime("%d-%m-%Y_%H%M%S-%f")
 
@@ -57,23 +74,9 @@ def main():
 
     model_config = {"group_config": group_config, "room_config": room_config}
     schedule_model = ScheduleModel(empty_timeslots, week_parity, model_config, global_space)
-
-    iterations = 0
-    while not schedule_model.schedule_ready():
-        schedule_model.step()
-        iterations += 1
     
-    owned_class_count = schedule_model.owned_class_count()
-    failed_solution_count = schedule_model.failed_count()
-    completed_solution_count = schedule_model.completed_count()
-    completed_percent = f"{((completed_solution_count / owned_class_count) * 100):.2f}"
-    failed_percent = f"{((failed_solution_count / owned_class_count) * 100):.2f}"
+    build_schedule(schedule_model)
 
-    print(f"Iteration count: {iterations}\n")
-    print(f"Owned class count: {owned_class_count}")
-    print(f"Completed solutions: {completed_percent}% ({completed_solution_count})")
-    print(f"Failed solutions: {failed_percent}% ({failed_solution_count})\n")
-    
     decoder = ScheduleDecoder(main_config, global_space, schedule_model.get_group_timeslots())
     timetables = decoder.decode()
     #save_timetable(output_dir, timetables)

@@ -1,1 +1,1 @@
-АААААААААААААААААААААААААА
+Use `launch_main.bat` to start the program.

@@ -242,10 +242,6 @@ class TeacherAgent(SendingAgent):
             request.set_sender(self.get_id())
             self.send_message(request, group_id)
 
-#           на этом этапе предпочтение - это свободный таймслот у группы
-#           получаемое предпочтение: (id дня учебного ПЕРИОДА, номер пары)
-#           получаем список предпочтений
-
             response = self.pop_last_message()
             if response.get_type() == MessageType.SUBJPREFS:
                 self.groups_subjprefs += response.get_content()
