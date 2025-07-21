@@ -37,11 +37,11 @@
     },
     "106b": {
         "supported_class_types": ["лаб."],
-        "tools": ["Нет"]
+        "tools": []
     },
     "107": {
         "supported_class_types": ["лаб."],
-        "tools": ["Нет"]
+        "tools": []
     }
 
 }
