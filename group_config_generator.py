@@ -122,9 +122,9 @@ class TeacherMaker:
         
         return Teacher(teacher_name, teacher_class_list)
 
-def generate_classes(group_names, class_count, generator_config):
+def generate_classes(group_names, class_count, generator_config, teacher_count):
     #class_name_list = generator_config["classes"]
-    teacher_name_list = generator_config["teachers"]
+    teacher_name_list = [f"пр{i}" for i in range(teacher_count)]#generator_config["teachers"]
     class_type_list = generator_config["class_types"]
     tool_list = generator_config["tools"]
     max_tool_count = generator_config["max_tool_count"]
@@ -157,17 +157,54 @@ def generate_classes(group_names, class_count, generator_config):
     print(class_maker.get_class_tools())
     return group_dict
 
+def generate_rooms(room_count):
+    types = ["лек.", "лаб."]
+    tools = ["Проектор", "Компьютеры"]
+    result = {}
+
+    for i in range(room_count):
+        room_name = f"А{i}"
+        room_info = {}
+        room_types_act_choice = random.randint(0, 3)
+        room_tools_act_choice = random.randint(0, 4)
+
+        if room_types_act_choice < 2:
+            room_info["supported_class_types"] = [types[room_types_act_choice]]
+        else:
+            room_info["supported_class_types"] = types
+
+        if room_tools_act_choice < 2:
+            room_info["tools"] = [tools[room_tools_act_choice]]
+        elif room_tools_act_choice == 2:
+            room_info["tools"] = tools
+        else:
+            room_info["tools"] = []
+        
+        result[room_name] = room_info
+
+    return result
+
 def generate():
     generator_config = load_config(generator_config_path)
+    main_config = load_config(main_config_path)
+    group_count = main_config["group_count"]
+    teacher_count = 3 + group_count * 3
     #group_list = generator_config["groups"]
-    group_list = []
+    #group_list = []
 
-    for i in range(3):
-        group_list.append(generator_config["groups"][i])
+    #for i in range(3):
+        #group_name = f"гр{i}"
+        #group_list.append(group_name)
+        #group_list.append(generator_config["groups"][i])
+    group_list = [f"гр{i}" for i in range(group_count)]
 
-    group_dict = generate_classes(group_list, 7, generator_config)
+    group_dict = generate_classes(group_list, 7, generator_config, teacher_count)
     with open(os.path.join(config_dir, "group_config.json"), "w", encoding = "utf-8") as group_config_file:
-        json.dump(group_dict, group_config_file, indent=4, ensure_ascii=False)
+        json.dump(group_dict, group_config_file, ensure_ascii=False)
+    
+    room_dict = generate_rooms(40)
+    with open(os.path.join(config_dir, "room_config.json"), "w", encoding = "utf-8") as room_config_file:
+        json.dump(room_dict, room_config_file, ensure_ascii=False)
 
     #group_config = {}
     #for group in group_list:

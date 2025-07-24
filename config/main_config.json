@@ -1,4 +1,5 @@
 {
+    "group_count": 33,
     "class_min_count": 2,
     "class_max_count": 4,
     "week_parity": ["Чётная", "Нечётная"],

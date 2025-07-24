@@ -556,7 +556,6 @@ class ScheduleModel(Model):
                     _class_copy = copy.deepcopy(_class)
                     _class_copy.times = (i, time)
 
-#                   owned_class: tuple (id, group id, appearance, tools)
 #                   appearance: tuple (week number, count of class repeats (it's called "time"))
 #                   tools: tuple (tool1, tool2, ..., tooln)
 

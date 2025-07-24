@@ -1,12 +1,16 @@
 import json
 import os
 import sys
+from memory_profiler import profile, memory_usage
 from datetime import datetime
-from schedudle_model import ScheduleModel, TeacherState
+
+from schedudle_model import ScheduleModel
 from entity_system import Space
 from schedule_decoder import ScheduleDecoder
-from flask import Flask
 import flask_routes
+import program_testing as measure
+
+import gc
 
 main_config_path = "main_config.json"
 group_config_path = "group_config.json"
@@ -33,12 +37,49 @@ def make_timeslots(day_count, class_count):
         timeslots.append(day)
     return timeslots
 
-def build_schedule(schedule_model: ScheduleModel):
+def make_steps(schedule_model: ScheduleModel) -> int:
     iterations = 0
     while not schedule_model.schedule_ready():
         schedule_model.step()
         iterations += 1
+
+    return iterations
+
+def build_schedule(
+    schedule_model: ScheduleModel,
+    group_count, empty_timeslots, week_parity, model_config, global_space):
+
+    measurer = measure.MemoryMeasurer()
+    timer = measure.Timer()
     
+    test_count = 100
+    average_measurer_result = 0
+    average_timer_result = 0
+
+    for i in range(test_count):
+        print("#", end="", flush=True)
+        global_space = Space()
+        schedule_model = ScheduleModel(empty_timeslots, week_parity, model_config, global_space)
+
+        timer.begin()
+        measurer.begin()
+        iterations = make_steps(schedule_model)
+        measurer.end()
+        timer.end()
+
+        average_measurer_result += measurer.result()
+        average_timer_result += timer.result()
+
+    average_measurer_result /= test_count
+    average_timer_result /= test_count
+
+    gc.collect()
+
+    print(f"\nAll steps used {average_measurer_result} MiB in avg")
+    print(f"Elapsed time {average_timer_result} s in avg")
+    with open("measuring_results.txt", "a") as file:
+        file.write(f"{group_count}\t{average_measurer_result}\t{average_timer_result}\n")
+
     owned_class_count = schedule_model.owned_class_count()
     failed_solution_count = schedule_model.failed_count()
     completed_solution_count = schedule_model.completed_count()
@@ -48,7 +89,8 @@ def build_schedule(schedule_model: ScheduleModel):
     print(f"Iteration count: {iterations}\n")
     print(f"Owned class count: {owned_class_count}")
     print(f"Completed solutions: {completed_percent}% ({completed_solution_count})")
-    print(f"Failed solutions: {failed_percent}% ({failed_solution_count})\n")
+    print(f"Failed solutions: {failed_percent}% ({failed_solution_count})")
+    print(f"Undefined solutions: {schedule_model.undefined_count()}\n")
 
 def save_timetable(output_dir: str, timetable):
     current_time = datetime.now().strftime("%d-%m-%Y_%H%M%S-%f")
@@ -73,9 +115,9 @@ def main():
     }
 
     model_config = {"group_config": group_config, "room_config": room_config}
-    schedule_model = ScheduleModel(empty_timeslots, week_parity, model_config, global_space)
     
-    build_schedule(schedule_model)
+    build_schedule(schedule_model, main_config["group_count"],
+    empty_timeslots, week_parity, model_config, global_space)
 
     decoder = ScheduleDecoder(main_config, global_space, schedule_model.get_group_timeslots())
     timetables = decoder.decode()
