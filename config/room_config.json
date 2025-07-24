@@ -1,1 +1,47 @@
-{"А0": {"supported_class_types": ["лек."], "tools": ["Проектор"]}, "А1": {"supported_class_types": ["лаб."], "tools": ["Проектор", "Компьютеры"]}, "А2": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор"]}, "А3": {"supported_class_types": ["лаб."], "tools": ["Проектор", "Компьютеры"]}, "А4": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор", "Компьютеры"]}, "А5": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор"]}, "А6": {"supported_class_types": ["лаб."], "tools": []}, "А7": {"supported_class_types": ["лаб."], "tools": []}, "А8": {"supported_class_types": ["лек."], "tools": []}, "А9": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор"]}, "А10": {"supported_class_types": ["лаб."], "tools": ["Проектор", "Компьютеры"]}, "А11": {"supported_class_types": ["лаб."], "tools": ["Проектор", "Компьютеры"]}, "А12": {"supported_class_types": ["лек."], "tools": ["Проектор"]}, "А13": {"supported_class_types": ["лек."], "tools": []}, "А14": {"supported_class_types": ["лек.", "лаб."], "tools": ["Компьютеры"]}, "А15": {"supported_class_types": ["лек."], "tools": ["Проектор"]}, "А16": {"supported_class_types": ["лек.", "лаб."], "tools": []}, "А17": {"supported_class_types": ["лаб."], "tools": ["Компьютеры"]}, "А18": {"supported_class_types": ["лек.", "лаб."], "tools": ["Компьютеры"]}, "А19": {"supported_class_types": ["лаб."], "tools": ["Проектор"]}, "А20": {"supported_class_types": ["лек.", "лаб."], "tools": []}, "А21": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор"]}, "А22": {"supported_class_types": ["лек."], "tools": ["Проектор", "Компьютеры"]}, "А23": {"supported_class_types": ["лаб."], "tools": []}, "А24": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор", "Компьютеры"]}, "А25": {"supported_class_types": ["лек.", "лаб."], "tools": []}, "А26": {"supported_class_types": ["лек.", "лаб."], "tools": ["Компьютеры"]}, "А27": {"supported_class_types": ["лек."], "tools": ["Проектор", "Компьютеры"]}, "А28": {"supported_class_types": ["лек."], "tools": ["Проектор"]}, "А29": {"supported_class_types": ["лек."], "tools": []}, "А30": {"supported_class_types": ["лек."], "tools": ["Компьютеры"]}, "А31": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор", "Компьютеры"]}, "А32": {"supported_class_types": ["лек.", "лаб."], "tools": []}, "А33": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор", "Компьютеры"]}, "А34": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор", "Компьютеры"]}, "А35": {"supported_class_types": ["лек."], "tools": ["Компьютеры"]}, "А36": {"supported_class_types": ["лек."], "tools": ["Компьютеры"]}, "А37": {"supported_class_types": ["лек."], "tools": []}, "А38": {"supported_class_types": ["лек.", "лаб."], "tools": []}, "А39": {"supported_class_types": ["лек.", "лаб."], "tools": ["Проектор"]}}
+{
+    "100a": {
+        "supported_class_types": ["лек.", "лаб."],
+        "tools": ["Проектор"]
+    },
+    "100b": {
+        "supported_class_types": ["лек."],
+        "tools": ["Проектор"]
+    },
+    "101": {
+        "supported_class_types": ["лек.", "лаб."],
+        "tools": ["Проектор"]
+    },
+    "102": {
+        "supported_class_types": ["лек."],
+        "tools": ["Проектор"]
+    },
+    "103": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "104": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "105a": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "105b": {
+        "supported_class_types": ["лаб."],
+        "tools": ["Компьютеры"]
+    },
+    "106a": {
+        "supported_class_types": ["лек."],
+        "tools": ["Проектор"]
+    },
+    "106b": {
+        "supported_class_types": ["лаб."],
+        "tools": []
+    },
+    "107": {
+        "supported_class_types": ["лаб."],
+        "tools": []
+    }
+
+}
