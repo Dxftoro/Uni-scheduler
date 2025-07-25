@@ -11,6 +11,8 @@ import flask_routes
 main_config_path = "main_config.json"
 group_config_path = "group_config.json"
 room_config_path = "room_config.json"
+timepref_config_path = "group_timeprefs.json"
+
 script_dir = os.path.dirname(sys.argv[0])
 config_dir = os.path.join(script_dir, "config")
 output_dir = os.path.join(script_dir, "output")
@@ -63,6 +65,7 @@ def main():
     main_config = load_config(main_config_path)
     group_config = load_config(group_config_path)
     room_config = load_config(room_config_path)
+    timepref_config = load_config()
 
     week_day_count = len(main_config["week_days"])
     week_parity = len(main_config["week_parity"])
@@ -72,9 +75,10 @@ def main():
         "timeslots": make_timeslots(period_size, main_config["class_max_count"])
     }
 
-    model_config = {"group_config": group_config, "room_config": room_config}
+    model_config = {"group_config": group_config, "room_config": room_config, "timepref_config": timepref_config}
     schedule_model = ScheduleModel(empty_timeslots, week_parity, model_config, global_space)
     
+    print("Building schedule...")
     build_schedule(schedule_model)
 
     decoder = ScheduleDecoder(main_config, global_space, schedule_model.get_group_timeslots())

@@ -128,6 +128,7 @@ class ClassInfo:
         self.group_id = group_id
         self.type_id = global_space.match(class_info["class_type"])
         self.times = ()
+        self.priority = class_info["priority"]
 
         class_tools = []
         for tool in class_info["tools"]:
@@ -197,8 +198,10 @@ class TeacherAgent(SendingAgent):
                     "type_id": owned_class.type_id,
                     "week": owned_class.times[0],
                     "tools": owned_class.tools,
+                    "priority": owned_class.priority,
                     "solution": SolutionType.UNDEFINED
                 })
+#        self.owned_classes.sort(key=lambda x: x["group_id"])
     
     def on_receive(self): pass
         #message = self.get_last_message()
@@ -340,9 +343,10 @@ class TeacherAgent(SendingAgent):
         return count
 
 class GroupAgent(SendingAgent):
-    def __init__(self, model, self_id, timeslots):
+    def __init__(self, model, self_id, timeslots, timeprefs):
         super().__init__(self_id, model)
         self.timeslots = timeslots
+        self.timeprefs = timeprefs
         self.planned_meetings = {}
 
     def on_receive(self):

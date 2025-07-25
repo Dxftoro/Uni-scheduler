@@ -18,11 +18,12 @@ def load_config(config_path):
     return input_dict
 
 class Class:
-    def __init__(self, name: str, class_type: str, min_class_times: int, max_class_times: int):
+    def __init__(self, name: str, class_type: str, min_class_times: int, max_class_times: int, priority: float):
         self.name = name
         self.class_type = class_type
         self.class_tools = []
         self.times = ()
+        self.priority = priority
         self.__make_times(random.randint(min_class_times, max_class_times))
     
     def __make_times(self, max_times: int):
@@ -44,6 +45,9 @@ class Class:
 
     def get_tools(self):
         return self.class_tools
+
+    def get_priority(self):
+        return self.priority
 
 class ClassMaker:
     def _choose_tools(self) -> list:
@@ -73,8 +77,9 @@ class ClassMaker:
 
     def make_class_set(self, name: str, min_class_times, max_class_times):
         class_set = []
+        class_priority = random.random()
         for type in self.types:
-            new_class = Class(name + ", " + type, type, min_class_times, max_class_times)
+            new_class = Class(name + ", " + type, type, min_class_times, max_class_times, class_priority)
             class_set.append(new_class)
 
             if new_class.get_name() in self.class_tools:
@@ -90,7 +95,7 @@ class ClassMaker:
 
     def get_class_tools(self):
         return self.class_tools
-
+    
 class Teacher:
     def __init__(self, name: str, class_count: int, class_list: list):
         self.name = name
@@ -122,7 +127,17 @@ class TeacherMaker:
         
         return Teacher(teacher_name, teacher_class_list)
 
+def generate_group_timepref(day_count, max_class_times):
+    timeprefs = []
+    for i in range(day_count):
+        day = [random.random() for _ in range(max_class_times)]
+        timeprefs.append(day)
+    return timeprefs
+
 def generate_classes(group_names, class_count, generator_config):
+    main_config = load_config(main_config_path)
+    day_count = len(main_config["week_days"]) * len(main_config["week_parity"])
+
     #class_name_list = generator_config["classes"]
     teacher_name_list = generator_config["teachers"]
     class_type_list = generator_config["class_types"]
@@ -133,8 +148,11 @@ def generate_classes(group_names, class_count, generator_config):
     
     class_maker = ClassMaker(class_type_list, tool_list, max_tool_count)
     group_dict = {}
+    group_timeprefs = {}
     for group_name in group_names:
         class_name_list = copy.deepcopy(generator_config["classes"])
+        group_timeprefs[group_name] = generate_group_timepref(day_count, max_class_times)
+
         for i in range(class_count):
             #print(len(class_name_list) - 1)
             choosen_class_index = random.randint(0, len(class_name_list) - 1)
@@ -153,9 +171,10 @@ def generate_classes(group_names, class_count, generator_config):
                 group_dict[group_name][_class.get_name()]["times"] = _class.get_times()
                 group_dict[group_name][_class.get_name()]["teacher"] = random.choice(teacher_name_list)
                 group_dict[group_name][_class.get_name()]["tools"] = _class.get_tools()
+                group_dict[group_name][_class.get_name()]["priority"] = _class.get_priority()
 
     print(class_maker.get_class_tools())
-    return group_dict
+    return [group_dict, group_timeprefs]
 
 def generate():
     generator_config = load_config(generator_config_path)
@@ -165,9 +184,15 @@ def generate():
     for i in range(3):
         group_list.append(generator_config["groups"][i])
 
-    group_dict = generate_classes(group_list, 7, generator_config)
+    generated = generate_classes(group_list, 7, generator_config)
+    group_dict = generated[0]
+    group_timeprefs = generated[1]
+    
     with open(os.path.join(config_dir, "group_config.json"), "w", encoding = "utf-8") as group_config_file:
         json.dump(group_dict, group_config_file, indent=4, ensure_ascii=False)
+    
+    with open(os.path.join(config_dir, "group_timeprefs.json"), "w", encoding = "utf-8") as group_config_file:
+        json.dump(group_timeprefs, group_config_file, indent=4, ensure_ascii=False)
 
     #group_config = {}
     #for group in group_list:
