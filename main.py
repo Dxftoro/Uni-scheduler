@@ -65,7 +65,7 @@ def main():
     main_config = load_config(main_config_path)
     group_config = load_config(group_config_path)
     room_config = load_config(room_config_path)
-    timepref_config = load_config()
+    timepref_config = load_config(timepref_config_path)
 
     week_day_count = len(main_config["week_days"])
     week_parity = len(main_config["week_parity"])
